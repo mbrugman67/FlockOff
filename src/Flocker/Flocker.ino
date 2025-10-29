@@ -1,4 +1,5 @@
 #include "gps.h"
+#include "led.h"
 
 #define GPS_PORT_TX 6
 #define GPS_PORT_RX 5
@@ -6,17 +7,22 @@
 
 #define USER_LED 21
 
+#define CLED_R 7
+#define CLED_G 9
+#define CLED_B 8
+
 NMEAGPS gps;
+LEDS commLeds;
 
 void setup() {
-  Serial.begin(112500); // init USB serial
-  delay(1000);
-
   pinMode(USER_LED, OUTPUT);
+  Serial.begin(112500); // init USB serial
 
   if (!gps.begin(GPS_PORT_BAUD, GPS_PORT_RX, GPS_PORT_TX)) {
     Serial.printf("gps not init'd!\r\n");
   } 
+
+  commLeds.begin(CLED_R, CLED_G, CLED_B);
 
   delay(1000);
 
@@ -37,8 +43,8 @@ void printDate() {
 
 void loop() {
   static uint32_t msnow = millis();
-  static bool led = false;
-  static bool first = false;
+  static uint32_t ledOffset = millis();
+  static uint8_t ledState = 0;
   
   static float lat = -999.9;
   static float lng = -999.9;
@@ -52,15 +58,8 @@ void loop() {
     fixQuality = tmpInt;
   }
 
-  float tmpFlt;
-
   if (fixQuality > 0) {
-    //float tmpFlt = gps.getCourse();
-    //if (tmpFlt != course) {
-    //  Serial.printf("new course %f\r\n", tmpFlt);
-    //  course = tmpFlt;
-    //}
-
+    float tmpFlt;
     bool changed = false;
 
     tmpFlt = gps.getLatitude();
@@ -90,18 +89,47 @@ void loop() {
     }
   }
 
-
   gps.update();
 
-  if ((millis() - msnow) > 1000) {
+  if ((millis() - msnow) > 500) {
     msnow = millis();
+    digitalWrite(USER_LED, !digitalRead(USER_LED));
+  }
 
-    if (led) {
-      digitalWrite(USER_LED, HIGH);
-      led = false;
-    } else {
-      digitalWrite(USER_LED, LOW);
-      led = true;
-    }
-  }  
+  switch (ledState)
+  {
+    case 0:
+    {
+      commLeds.cycleRed(2000, 1500);
+      ledOffset = millis();
+      ledState = 1;
+    }  break;
+
+    case 1:
+    {
+      if (millis() - ledOffset > 1000)
+      {
+        commLeds.cycleGrn(2000, 1500);
+        ledOffset = millis();
+        ledState = 2;
+      }
+    }  break;
+
+    case 2:
+    {
+      if (millis() - ledOffset > 1000)
+      {
+        commLeds.cycleBlu(2000, 1500);
+        ledOffset = millis();
+        ledState = 3;
+      }  
+    }  break;
+
+    case3:
+    {
+
+    }  break;
+  }
+
+  commLeds.update();
 }
