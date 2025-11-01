@@ -1,0 +1,5 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "local")(type "KiCad")(uri "/home/matty/data/projects/FlockOff/hardware/flockOff")(options "")(descr ""))
+  (lib (name "FlockOff")(type "KiCad")(uri "${KIPRJMOD}/FlockOff.pretty")(options "")(descr ""))
+)
