@@ -1,5 +1,6 @@
 #include "gps.h"
 #include "led.h"
+//#include "ledAddr.h"
 
 #define GPS_PORT_TX 6
 #define GPS_PORT_RX 5
@@ -23,6 +24,8 @@ void setup() {
   } 
 
   commLeds.begin(CLED_R, CLED_G, CLED_B);
+
+  //setupAddr();
 
   delay(1000);
 
@@ -132,4 +135,5 @@ void loop() {
   }
 
   commLeds.update();
+  //updateAddr();
 }
