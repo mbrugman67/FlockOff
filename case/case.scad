@@ -366,6 +366,35 @@ module antenna()
 }
 
 
+module lanyardRing(x, y, z)
+{
+   translate([x, y, z])
+   {
+      difference()
+      {
+      color([0, 0, 0])
+         {
+            translate([0, -4, 5])
+            rotate([0, 90, 0])
+            prism(10, 4, 8);
+            
+            translate([0, 4, -5])
+            rotate([0, 270, 180])
+            prism(10, 4, 8);
+            
+            translate([7, 0, 0])
+            rotate([90, 0, 0])
+            cylinder(h=2, d=10, center=true, $fn=360);
+         }
+         
+         color([0, 0, 0])
+         translate([7, 0, 0])
+         rotate([90, 0, 0])
+         cylinder(h=8, d=6.5, center=true, $fn=360);
+      }
+   }
+}
+
 module posts()
 {
   color([1, .7568, .4314])
@@ -396,11 +425,25 @@ module main()
     top(90, 42, 3, 20);
     pcb(-5, 0, 10);
     antenna();
+    lanyardRing(42, 18, 12);
     //posts();
 }
 
 
-main();
-
+difference()
+{
+   main();
+   
+   color([0, 0, 0])
+   {
+      translate([-45, 26, 10])
+      rotate([0, 0, 45])
+      cube([8, 8, 30], true);
+    
+      translate([-45, -26, 10])
+      rotate([0, 0, 45])
+      cube([8, 8, 30], true);
+   }
+}
 
 
