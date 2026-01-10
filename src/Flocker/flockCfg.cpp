@@ -1,3 +1,12 @@
+/********************************************************************
+ * flockCfg.cpp
+ ********************************************************************
+ * Implementation of the config class.  Configuration is stored
+ * in a JSON file.  This will handle reading/writing/backing up
+ * the config file.
+ *
+ * Also, there's a handler for setting config values over the CLI
+ *******************************************************************/
 #include <Arduino.h>
 
 #include "flockCfg.h"
@@ -105,7 +114,7 @@ bool CONFIG::begin()
       Serial.print(CLI_BOLD_RED "CONFIG::begin()-> Did not allocate to build default config data\r\n" CLI_RESET);
       return (false);
     }
-    
+
     // read the file
     if (flockfs.readFile(CONFIG_FILENAME, (uint8_t*)json, cfgSize) == -1)
     {
@@ -136,10 +145,10 @@ bool CONFIG::buildDefualtConfig()
 
   cfg[DEVICENAME] = "Generic ESP32S3";         // tag that can be added to data
   cfg[TIMEZONE] = "CST6CDT,M3.2.0,M11.1.0";    // my timezone :)
-  cfg[LEDBRIGHTNESS] = 128;                    // max LED brightness when flashing (0-255) 
-  cfg[DEBUGENABLED] = false;
-  cfg[DEBUGROLLCOUNT] = 3;
-  cfg[MINRSSI] = -85;
+  cfg[LEDBRIGHTNESS] = 128;                    // max LED brightness when flashing (0-255)
+  cfg[DEBUGENABLED] = false;                   // debug logging enabled?
+  cfg[DEBUGROLLCOUNT] = 3;                     // how many previous debug files to save
+  cfg[MINRSSI] = -85;                          // minimum signal strength for alert
 
   JsonArray wifiAPs = cfg[WIFIAPS].to<JsonArray>();
 
@@ -164,13 +173,18 @@ void CONFIG::outputJson()
   Serial.printf("\r\n" CLI_CYA);
 }
 
-
+/*****************************************************
+ * Read a string from serial and convert to an integer
+******************************************************/
 int CONFIG::readInt(const char* prompt)
 {
   this->readString(prompt);
   return ((int)strtol(inputstr, NULL, 10));
 }
 
+/*****************************************************
+* Read a single char from serial
+******************************************************/
 char CONFIG::readChar(const char* prompt)
 {
   static char c;
@@ -189,6 +203,9 @@ char CONFIG::readChar(const char* prompt)
   return (c);
 }
 
+/*****************************************************
+* Read a string
+******************************************************/
 const char* CONFIG::readString(const char* prompt)
 {
   int posn = 0;
@@ -280,7 +297,7 @@ void CONFIG::selectTimeZone()
   // print all of the available timezones in two columns
   for (size_t ii = 1; ii < tzCount / 2; ++ii)
   {
-    Serial.printf(CLI_YEL " %2d)" CLI_BOLD_GRN " %-30s " CLI_RESET " " CLI_YEL " %2d) " CLI_BOLD_GRN "%s\r\n" 
+    Serial.printf(CLI_YEL " %2d)" CLI_BOLD_GRN " %-30s " CLI_RESET " " CLI_YEL " %2d) " CLI_BOLD_GRN "%s\r\n"
         CLI_RESET, ii, zones[ii].desc, ii + 21, zones[ii + 21].desc);
   }
 
@@ -295,16 +312,14 @@ void CONFIG::selectTimeZone()
 }
 
 /******************************************************
-* Set the actual timezone to the internal OS/runtime 
+* Set the actual timezone to the internal OS/runtime
 ******************************************************/
 void CONFIG::setTimeZone()
 {
   const char* tz = cfg[TIMEZONE];
   setenv("TZ", tz, 1);
-  tzset();  
+  tzset();
 }
-
-
 
 /******************************************************
 * Set the minimum RSSI
@@ -337,9 +352,6 @@ int8_t CONFIG::getMinRSSI()
   return ((int8_t)cfg[MINRSSI]);
 }
 
-
-
-
 /******************************************************
 * Set the device name
 ******************************************************/
@@ -353,7 +365,7 @@ void CONFIG::setDeviceName()
 }
 
 /******************************************************
-* Get the device name.  
+* Get the device name.
 ******************************************************/
 const char* CONFIG::getDeviceName()
 {
@@ -400,7 +412,7 @@ uint8_t CONFIG::getLEDBrightness()
 }
 
 /******************************************************
-* Get the timezone. 
+* Get the timezone.
 ******************************************************/
 const char* CONFIG::getTimeZone()
 {
@@ -409,8 +421,8 @@ const char* CONFIG::getTimeZone()
 
 /******************************************************
 * Get the debug enabled state.  If true, the system
-* will be saving debug information to a log file in 
-* internal filesystem 
+* will be saving debug information to a log file in
+* internal filesystem
 ******************************************************/
 bool CONFIG::getDebugEnabledState()
 {
@@ -419,8 +431,8 @@ bool CONFIG::getDebugEnabledState()
 
 /******************************************************
 * Set the debug enabled state.  If true, the system
-* will be saving debug information to a log file in 
-* internal filesystem 
+* will be saving debug information to a log file in
+* internal filesystem
 ******************************************************/
 void CONFIG::setDebugEnabledState()
 {
@@ -440,13 +452,13 @@ void CONFIG::setDebugEnabledState()
       done = true;
     }
   }
-  
+
   this->setNewConfigFlags(true);
   this->writeConfig();
 }
 
 /******************************************************
-* Get the debug log file count.  When enabled, the 
+* Get the debug log file count.  When enabled, the
 * system will open a new debug log file and "roll"
 * any existing files.  This config value controls how
 * many previous files to keep
@@ -457,7 +469,7 @@ uint8_t CONFIG::getDebugFileCount()
 }
 
 /******************************************************
-* Set the debug log file count.  When enabled, the 
+* Set the debug log file count.  When enabled, the
 * system will open a new debug log file and "roll"
 * any existing files.  This config value controls how
 * many previous files to keep
@@ -477,7 +489,7 @@ void CONFIG::setDebugFileRollCount()
       done = true;
     }
   }
-  
+
   this->setNewConfigFlags(true);
   this->writeConfig();
 }
@@ -503,7 +515,7 @@ bool CONFIG::writeConfig()
 
   memset(cfgjson, 0, 2048);
   serializeJson(cfg, cfgjson, 2047);
-  
+
   if (flockfs.writeFile(CONFIG_FILENAME, (uint8_t*)cfgjson, strlen(cfgjson)) == -1)
   {
     Serial.printf(CLI_BOLD_RED "CONFIG::writeConfig()-> Error writing config file\r\n" CLI_RESET);
@@ -512,7 +524,7 @@ bool CONFIG::writeConfig()
   {
     retVal = true;
   }
-  
+
   free(cfgjson);
 
   if (retVal)
@@ -526,12 +538,12 @@ bool CONFIG::writeConfig()
 /******************************************************
 *******************************************************
 *******************************************************
-* The next few methods handle letting clients know 
+* The next few methods handle letting clients know
 * that there has been a change to configuration data.
 *
 * Each client registers its desire to be alerted of
 * config changes and receives a "new config ID".  That
-* client can then periodially poll using that ID to see
+* client can then periodically poll using that ID to see
 * if there have been changes
 *******************************************************
 *******************************************************
@@ -574,7 +586,7 @@ bool CONFIG::newCfgAvailable(uint8_t listenerID)
 * listener.  Their ID will be returned, as well as
 * a result bool
 *
-* If all client slots have been filled, the method 
+* If all client slots have been filled, the method
 * will return false and set the ID to the known "BAD"
 * value.
 *
@@ -588,7 +600,7 @@ bool CONFIG::registerListener(uint8_t& id)
     id = BAD_LISTENER_ID;
     return (false);
   }
-  
+
   id = nextListenerID++;
   return (true);
 }

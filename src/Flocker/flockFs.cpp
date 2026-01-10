@@ -1,7 +1,17 @@
+/********************************************************************
+ * flockFS.cpp
+ ********************************************************************
+ * Wrapper class around the ESP32S3 standard library file functions
+ *******************************************************************/
 #include "flockFs.h"
 
 #include "globals.h"
 
+/********************************************
+* Instantiate the flash filesystem.  If the
+* partitioning was changed, this will most
+* likely fail.
+********************************************/
 bool MBFS::begin()
 {
   if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED))
@@ -13,18 +23,26 @@ bool MBFS::begin()
   return (true);
 }
 
+/*********************************************
+* Format the filesystem.
+**********************************************/
 void MBFS::format()
 {
     LittleFS.format();
 }
 
+/*********************************************
+* list files in the filesystem.  Filenames are
+* returned in a std::vector
+**********************************************/
 size_t MBFS::list(std::vector<std::string>& files)
 {
+    // all files are in the root directory; i.e. flat
     File root = LittleFS.open("/");
     File file = root.openNextFile();
 
     files.clear();
-    
+
     while(file)
     {
         files.push_back(std::string(file.name()));
@@ -57,7 +75,7 @@ void MBFS::getInfo(size_t* cap, size_t* used)
 }
 
 ssize_t MBFS::readFile(const char* path, uint8_t* buff, size_t len)
-{    
+{
     char fpath[65] = {0};
     snprintf(fpath, 64, "/%s", path);
     File file = LittleFS.open(fpath);
@@ -70,7 +88,7 @@ ssize_t MBFS::readFile(const char* path, uint8_t* buff, size_t len)
     ssize_t read = file.read(buff, len);
 
     file.close();
-    return (read);  
+    return (read);
 }
 
 ssize_t MBFS::writeFile(const char* path, const uint8_t* buff, size_t len)
@@ -87,8 +105,8 @@ ssize_t MBFS::writeFile(const char* path, const uint8_t* buff, size_t len)
 
     ssize_t written = file.write(buff, len);
 
-    file.close(); 
-    return (written); 
+    file.close();
+    return (written);
 }
 
 ssize_t MBFS::appendFile(const char* path, const uint8_t* buff, size_t len)
@@ -205,6 +223,19 @@ bool MBFS::deleteFile(const char* path)
     }
 }
 
+/****************************************************
+* File roller.  Pass the base filename, extension,
+* and max count.
+*
+* For example, if called as ->rollFiles("survey", "log", 5)
+* the files would roll:
+*    survey.5.log would get deleted (if it exists)
+*    survey.4.log would get renamed survey.5.log (if it exists)
+*    survey.3.log would get renamed survey.4.log (if it exists)
+*    survey.2.log would get renamed survey.3.log (if it exists)
+*    survey.1.log would get renamed survey.2.log (if it exists)
+*    survey.log would get renamed survey.1.log (if it exists)
+****************************************************/
 bool MBFS::rollFiles(const char* basePath, const char* ext, uint8_t count)
 {
     char* newName = (char*)ps_malloc(128);
@@ -240,7 +271,7 @@ bool MBFS::rollFiles(const char* basePath, const char* ext, uint8_t count)
 
     snprintf(oldName, 127, "%s.%s", basePath, ext);
     this->renameFile(oldName, newName);
-    
+
     free(oldName);
     free(newName);
 

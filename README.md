@@ -4,9 +4,9 @@
 This project started as a device specifically to detect Flock security ALPR devices, but has grown into a more generic WiFi/Bluetooth LE scanner/alert wardriving tool.
 
 ## Description
-This started of strictly as a Flock detector, but grew into more.  In general, it is a device to monitor WiFi and BTLE networks, setting an indicator whenever a broadcaster is found that meets preset parameters.  For WiFi networks, those parameters can be a MAC OID or network name (SSID).  For Bluetooth, the matching critera can be name, MAC, or by specific 16-bit UUIDs.
+This started of strictly as a Flock detector, but grew into more.  In general, it is a device to monitor WiFi and BTLE networks, setting an indicator whenever a broadcaster is found that meets preset parameters.  For WiFi networks, those parameters can be a MAC OID or network name (SSID).  For Bluetooth, the matching criteria can be name, MAC, or by specific 16-bit UUIDs.
 
-The hardware device consists of an ESP32-S3 dev board, a serial GPS module, and two LEDs for signalling.
+The hardware device consists of an ESP32-S3 dev board, a serial GPS module, and two LEDs for alerts and status.
 
 There is a serial interface to the hardware device with a rich CLI (command-line interface).  The device can also be used stand-alone (results are stored to internal file system) or by scripting.
 
@@ -23,8 +23,8 @@ The files contained in the project:
 
 The hardware is dead simple - two dev modules, two through-hole 8mm WS2812 LEDs, and a small signal diode:
 + [ESP32-S3](https://www.amazon.com/Dual-core-Supported-Efficiency-Interface-Robotics/dp/B0DJ6NQFKX/ref=sxin_17_pa_sp_search_thematic_sspa?content-id=amzn1.sym.acab9f82-fc77-4a20-9021-7b5c22d80ec5%3Aamzn1.sym.acab9f82-fc77-4a20-9021-7b5c22d80ec5&crid=2JDD3FE6II334&cv_ct_cx=esp32s3&keywords=esp32s3&pd_rd_i=B0DJ6NQFKX&pd_rd_r=111273b0-33b8-492d-943f-a421e25d3cd0&pd_rd_w=tgPcF&pd_rd_wg=AKjP3&pf_rd_p=acab9f82-fc77-4a20-9021-7b5c22d80ec5&pf_rd_r=M8JMDJXXJ54DR9BMEQC6&qid=1765833241&s=electronics&sbo=RZvfv%2F%2FHxDF%2BO5021pAnSA%3D%3D&sprefix=esp32s3%2Celectronics%2C142&sr=1-2-6024b2a3-78e4-4fed-8fed-e1613be3bcce-spons&aref=L2fTwRUg09&sp_csd=d2lkZ2V0TmFtZT1zcF9zZWFyY2hfdGhlbWF0aWM&th=1) I picked this module because of small size, good price, and 8MB of both flash and PSRAM
-+ [GPS Module](https://www.amazon.com/hiBCTR-Navigation-Positioning-Microcontroller-Sensitivity/dp/B0FL71WTQY/ref=sr_1_2?crid=2EM3EOXRCSTFT&dib=eyJ2IjoiMSJ9.XRWR-WnPLsz7cVN0GpjqJTxFRMO10MBskzPEVvz5LCTDXAtxa_rXf2wQrFndRzU50l7y__POWiiDMUXVK5OIa7VqEst8IqFH4xFvcnBHg-U0VY4qNZQPKFdzWL5Evdyj4AFWD0VpzcrnOxwnca7-Dr8wspdKucj2aYc0Gtoa1uRUl7K4ES9h20ztgmGDT3mPrt2tiQ-HN-FAgOPFQVPE3Pudl5vF2LNCPSp00W8Bhg5xvlYpIlCSGdX8GwmWiVH8u0OJW8YW5ridkpLchugFbq4H7w5SYdWBFkT73FZqAvk.YyvKMYAZdg815_BV_j8Fv4HH-0O0dOLUrndqKjRR0CQ&dib_tag=se&keywords=4+Pack+GPS+Module%2C+NEO-6M+Navigation+Positioning%2C+Arduino+GPS+for+Drone+Microcontroller%2C+High+Sensitivity+Receiver+with+Antenna%2C+Compatible+with+51+Microcontroller+STM32+Arduino+UNO+R3&nsdOptOutParam=true&qid=1765833097&s=electronics&sprefix=4+pack+gps+module%2C+neo-6m+navigation+positioning%2C+arduino+gps+for+drone+microcontroller%2C+high+sensitivity+receiver+with+antenna%2C+compatible+with+51+microcontroller+stm32+arduino+uno+r3%2Celectronics%2C158&sr=1-2) There is notthing special about this particular module; it is a basic GPS with NMEA serial interface, it was cheap, and in stock at Amazon
-+ [WS1812 LEDs](https://www.adafruit.com/product/1734)  These are interesting in that they are the typical addressable LEDs, but in a through-hole 8mm package.  They are great for using as signalling/status indicators.  Also handy because there are so many libraries to work with them.
++ [GPS Module](https://www.amazon.com/hiBCTR-Navigation-Positioning-Microcontroller-Sensitivity/dp/B0FL71WTQY/ref=sr_1_2?crid=2EM3EOXRCSTFT&dib=eyJ2IjoiMSJ9.XRWR-WnPLsz7cVN0GpjqJTxFRMO10MBskzPEVvz5LCTDXAtxa_rXf2wQrFndRzU50l7y__POWiiDMUXVK5OIa7VqEst8IqFH4xFvcnBHg-U0VY4qNZQPKFdzWL5Evdyj4AFWD0VpzcrnOxwnca7-Dr8wspdKucj2aYc0Gtoa1uRUl7K4ES9h20ztgmGDT3mPrt2tiQ-HN-FAgOPFQVPE3Pudl5vF2LNCPSp00W8Bhg5xvlYpIlCSGdX8GwmWiVH8u0OJW8YW5ridkpLchugFbq4H7w5SYdWBFkT73FZqAvk.YyvKMYAZdg815_BV_j8Fv4HH-0O0dOLUrndqKjRR0CQ&dib_tag=se&keywords=4+Pack+GPS+Module%2C+NEO-6M+Navigation+Positioning%2C+Arduino+GPS+for+Drone+Microcontroller%2C+High+Sensitivity+Receiver+with+Antenna%2C+Compatible+with+51+Microcontroller+STM32+Arduino+UNO+R3&nsdOptOutParam=true&qid=1765833097&s=electronics&sprefix=4+pack+gps+module%2C+neo-6m+navigation+positioning%2C+arduino+gps+for+drone+microcontroller%2C+high+sensitivity+receiver+with+antenna%2C+compatible+with+51+microcontroller+stm32+arduino+uno+r3%2Celectronics%2C158&sr=1-2) There is nothing special about this particular module; it is a basic GPS with NMEA serial interface, it was cheap, and in stock at Amazon
++ [WS1812 LEDs](https://www.adafruit.com/product/1734)  These are interesting in that they are the typical addressable LEDs, but in a through-hole 8mm package.  They are great for using as status indicators.  Also handy because there are so many libraries to work with them.
 + [1N4148 Diode](amazon.com/ALLECIN-1N4148-Schottky-Switching-Package/dp/B0CKRMK45V/ref=sr_1_6_sspa?dib=eyJ2IjoiMSJ9.5f18Rx_7lMSBN-40Nk5_scirzd5gVqG_sr48GsP-pxJ7RyARr5GHbm76WgpJle4ywCwcEGfv6m5ZR-PIBoBmRN28qtEe29DQYY84c263_q6oFDujaGGVK8-qabhrRd_IZtu2PwFHkKMBdiIw8IDQjSYkBxPm9DKi_AA6exCA7rmOiWGNdN9Oq0D-5c1H1XGK1kBii_ftCc-F3YiORaBovQ5vkFW9kAN3zzAu7IgDKEk.RF6rc4KmtAVvY9uUuLV-Zf6xt-HBLaOGQf1vvRW5V2U&dib_tag=se&keywords=1n4148&qid=1765833550&sr=8-6-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9tdGY&psc=1) (Amazon link for reference, I had some in my parts bin).  This is used because it has a forward voltage drop of about .7V.
 
 #### What's up with the diode?
@@ -34,27 +34,12 @@ Like pretty much all WS2812 LEDs, these need 5VDC to operate; 5VDC power, 5VDC d
 
 The USB connection supplies 5V which is regulated down to 3.3V for the microcontroller and associated stuff.  In the schematic above, `D3` is shown between the 5V USB power and the LED power in pin; that drops the voltage to about 4.3VDC.  That's just within spec for the LED, and it is still plenty bright.
 
-The 3.3V signal data line from the ESP32 would be too low if the LED was powered by 5V, but is just enough with the LED at 4.3-ish.  It's a cheat to get away without having to use level converters; not something I'd do for a "real" production project, but good enough for here.
+The 3.3V signal data line from the ESP32 would be too low if the LED was powered by 5V, but is within spec for the LED when it is running at 4.3-ish volts.  It's a cheat to get away without having to use level converters; not something I'd do for a "real" production project, but good enough for here.
 
 ### Firmware
 The firmware is written using the Arduino IDE.  In the past, I've always avoided that and used VS Code with my own Makefile or CMAKE, PlatformIO, or whatever.  I decided to go with Arduino in this case because I'm very unhappy with the integration of Copilot into VS Code (and really, the push to shove AI into everything).  For now, Ardiuno is just code.
 
-The libraries needed for this project are:
-+ ArduinoJson (7.4.2) - for JSON, obviously
-+ EspSoftwareSerial (8.1.0) - for the software UART to the GPS module
-+ LiteLED (3.0.1) - for the two addressable LEDs
-+ NimBLE-Arduino - for the BLE detection stuff
-
-Of course, the core ESP32 stuff needs to be installed (I'm using the Espressif ESP32 board package, v3.3.3).
-
-In addition, the board configuration is:
-+ Board: `ESP32S3 Dev Module`
-+ USB CDC on Boot: `Enabled`
-+ Flash Mode: `QIO 80MHz`
-+ Flash Size: `8MB`
-+ Partition Scheme: `Custom` - see `./src/partitions.csv`, but basically 3MB application, 4MB filesystem
-+ PSRAM: `OPI PSRAM`
-I believe everything else is default.
+For more specific information, see the `DEVELOPING.md` file.
 
 ### CLI Interface
 There is a CLI available at the USB port at 115200/8N1.  The CLI uses ANSII escape codes for color, has tab-completion, up-arrow recall, and help:
@@ -129,7 +114,7 @@ What do the LEDs do?
 A survey will report all WiFi and BTLE broadcasters in range.  Why perform a survey?  Maybe there's a known device that isn't triggering alerts, and we want to characterize it (find MAC address, if BT, see if there are any service UUIDs it's broadcasting).
 
 Basic steps:
-1) Connect to the device with a serial terminal of your choice (PuTTY on Windows, TIO/minicom oon Linux, whatever on MAC).
+1) Connect to the device with a serial terminal of your choice (PuTTY on Windows, TIO/minicom on Linux, minicom on MAC).
 2) Use the `status` command to be sure GPS has gotten a fix and that the data looks correct (GPS coordinates masked by me for privacy):
 ``` 
 Flock Off $>status 
@@ -197,7 +182,7 @@ The parameters to the `flock.py` script are:
   + `--load FILE` - load the specified JSON file into database tables'
   + `--download FILE` - download the specified FILE from the device to the local filesystem.  The local copy will have the same name as the file on the device.
 
-The above `--dir` comamnd showed our `survey.example.json` from the survey.  Let's load it into the database tables:
+The above `--dir` command showed our `survey.example.json` from the survey.  Let's load it into the database tables:
 ```  
 ┌──(venv)─(matty💊s76)-[~/data/projects/FlockOff/py]
 └─$ python3 ./flock.py --dbfile example.db --port /dev/ttyACM0 --load survey.example.json

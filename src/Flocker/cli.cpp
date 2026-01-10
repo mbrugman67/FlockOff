@@ -1,3 +1,11 @@
+/********************************************************************
+ * cli.cpp
+ ********************************************************************
+ * Entry point to command line handler.  The actual CLI processing
+ * is handled by embedded_cli.h.  Command definitions are in
+ * cli_impl.h
+ *******************************************************************/
+
 #include <Arduino.h>
 #include <ctime>
 
@@ -60,8 +68,8 @@ bool setupCLI()
   Serial.printf(CLI_BOLD_RED "  | $$      | $$|  $$$$$$/|  $$$$$$$| $$ \\  $$      |  $$$$$$/| $$      | $$      \r\n");
   Serial.printf(CLI_BOLD_GRN "  |__/      |__/ \\______/  \\_______/|__/  \\__/       \\______/ |__/      |__/      \r\n");
 
-  Serial.printf(CLI_RESET CLI_BOLD "(c) 2025 M.Brugman\r\n\r\n" CLI_RESET);         
-  Serial.printf("CLI Enabled.  'help' for help; <command -h> for help on that command\r\n");                                                                       
+  Serial.printf(CLI_RESET CLI_BOLD "(c) 2025 M.Brugman\r\n\r\n" CLI_RESET);
+  Serial.printf("CLI Enabled.  'help' for help; <command -h> for help on that command\r\n");
 
   return (true);
 }
@@ -83,4 +91,3 @@ void holdCLI(bool hold)
 {
   cliIsHeld = hold;
 }
-

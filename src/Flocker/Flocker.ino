@@ -1,13 +1,6 @@
 /***********************************************************************
-* Arduino config for XIAO ESP32S3:
-*  + Board: ESP32S3 Dev Module
-*  + USB CDC on Boot: Enabled
-*  + Flash: 8MB
-*  + Partition: custom
-*  + PSRAM: OPI PSRAM
+* Main entry point for the flocker.
 ***********************************************************************/
-//#include <esp_psram.h>
-
 #include "gps.h"
 #include "led.h"
 #include "cli.h"
@@ -17,13 +10,13 @@
 #include "flockLog.h"
 
 // constants for config'ing objects
-#define GPS_PORT_TX 5
-#define GPS_PORT_RX 6
-#define GPS_PORT_BAUD 9600
-#define ADDR_LED_PIN 9
-#define USER_LED 21
+#define GPS_PORT_TX 5        // defined by circuit board - don't change unless you changed hardware
+#define GPS_PORT_RX 6        // defined by circuit board - don't change unless you changed hardware
+#define GPS_PORT_BAUD 9600   // baud rate for GPS module - don't change unless you're using a different module
+#define ADDR_LED_PIN 9       // defined by circuit board - don't change unless you changed hardware
+#define USER_LED 21          // built-in user LED on XIAO ESP32S3 module
 
-// globals
+// global class instances
 FLOGGER flockLog;
 NMEAGPS gps;
 MBFS flockfs;
@@ -35,12 +28,14 @@ bool initOk;
 
 static uint8_t cfgListenerID = BAD_LISTENER_ID;
 
+// if you see this message on the CLI, you messed up an allocation!
 void heapCheck() {
   if (!heap_caps_check_integrity_all(true)) {
     Serial.printf("HEAPCHK->HEAPS FUCKED!\r\n");
   }
 }
 
+// Arduino setup method - called once by embedded OS on startup
 void setup() {
   initOk = true;
   psRamInitOk = psramInit();
@@ -48,7 +43,7 @@ void setup() {
   Serial.begin(112500);  // init USB serial
   delay(2000);
 
-  // order is important here
+  // order is important here - don't change this order!
   initOk &= gps.begin(GPS_PORT_BAUD, GPS_PORT_RX, GPS_PORT_TX);
   initOk &= flockfs.begin();
   initOk &= flockCfg.begin();
@@ -60,7 +55,7 @@ void setup() {
   if (!initOk)
   {
     delay(2000);
-    Serial.printf("SOMETHNG DIDN'T INIT.  Fuck :/\r\n");
+    Serial.printf("SOMETHING DIDN'T INIT.  Try turning debug logging on :/\r\n");
     delay(2000);
   }
   else
@@ -71,10 +66,12 @@ void setup() {
   flockLog.addLogLine("main", "Leaving setup()\r\n");
 }
 
+// Arduino-defined main loop.  Called continuously by embedded OS
 void loop() {
   static uint32_t msFlash = millis();
   static uint32_t msHeap = millis() - 1000;
 
+  // update classes
   if (initOk)
   {
     gps.update();
@@ -83,11 +80,13 @@ void loop() {
     flockLog.update();
   }
 
+  // user LED continually flashes - visual heartbeat
   if ((millis() - msFlash) > 500) {
     msFlash = millis();
     digitalWrite(USER_LED, !digitalRead(USER_LED));
   }
 
+  // check the stack every 2 seconds
   if ((millis() - msHeap) > 2000) {
     msHeap = millis();
     heapCheck();

@@ -1,3 +1,9 @@
+/********************************************************************
+ * cli_impl.h
+ ********************************************************************
+ * Command line handler implementation.  All command line handlers
+ * are declared, defined, attached/bound, and implemented here.
+ *******************************************************************/
 #ifndef CLI_IMPL_H_
 #define CLI_IMPL_H_
 
@@ -81,14 +87,14 @@ const char* helpConfig = "config [OPTION]\r\n"
  struct CliCommandBinding {
     const char *name;       <--- command as entered on CLI
     const char *shortHelp;  <--- description shown with help command
-    const char *help;       <--- detaild help shown with -h parameter on command
+    const char *help;       <--- detailed help shown with -h parameter on command
     bool tokenizeArgs;      <--- true if there are args
     void *context;          <--- data passed to handler if no args (not used here)
     void (*binding)(EmbeddedCli *cli, char *args, void *context);  <--- callback/command handler
   };
 *******************************************************/
 const struct CliCommandBinding bindings[] = {
-  {"survey", "Perform Wifi survey", helpSurvey, true, nullptr, onSurvey},
+  {"survey", "Perform WiFi survey", helpSurvey, true, nullptr, onSurvey},
   {"clear", "Clear the console", helpClear, false, nullptr, onClear},
   {"reset", "Reboot the device", helpReset, true, nullptr, onReset},
   {"ls", "List files", helpLs, true, nullptr, onLs},
@@ -127,6 +133,11 @@ void writeChar(EmbeddedCli *embeddedCli, char c)
   Serial.write(c);
 }
 
+/*****************************************************
+ * callback for config command.  Either list the
+ * config json file is listed, or the config handler
+ * is called
+ ****************************************************/
 void onConfig(EmbeddedCli* cli, char* args, void* context)
 {
   if (embeddedCliGetTokenCount(args) == 1)
@@ -162,13 +173,13 @@ void onConfig(EmbeddedCli* cli, char* args, void* context)
 *
 ******************************************************/
 void onSurvey(EmbeddedCli* cli, char* args, void* context)
-{ 
+{
   bool paramErr = false;
   bool doFile = false;
   bool doJson = false;
   bool doBT = false;
   bool doWiFi = false;
-  uint32_t interval = 1000; 
+  uint32_t interval = 1000;
   char fname[64] = {0};
   char notes[128] = {0};
   size_t argc = embeddedCliGetTokenCount(args);
@@ -193,7 +204,7 @@ void onSurvey(EmbeddedCli* cli, char* args, void* context)
           }
           else if (argv[1] == 'j')
           {
-            doJson = true;          
+            doJson = true;
             ++ii;
             if (ii <= argc)
             {
@@ -314,10 +325,15 @@ void onLs(EmbeddedCli *cli, char *args, void *context)
   std::vector<std::string>files;
   std::vector<std::string>::const_iterator filesCit;
   bool dump = false;
+
+  // call filesystem handler to populate all files and
+  // shove them into our vector of files
   size_t count = flockfs.list(files);
 
   if (embeddedCliGetTokenCount(args) == 1)
   {
+    // -d parameter means ls is being called in "dump" mode
+    // no fancy colors or ANSII sequences
     if (!strcmp(embeddedCliGetToken(args, 1), "-d"))
     {
       dump = true;
@@ -325,7 +341,7 @@ void onLs(EmbeddedCli *cli, char *args, void *context)
   }
 
   flockLog.addLogLine("CLI", "onLs(%s)\r\n", dump ? "dump" : "");
-  
+
   for (filesCit = files.begin(); filesCit != files.end(); ++filesCit)
   {
     if (!dump)
@@ -499,15 +515,20 @@ void onCat(EmbeddedCli *cli, char *args, void *context)
   if (tokens == 1 || tokens == 2)
   {
     for (int token = 1; token <= tokens; ++token)
-    if (!strcmp(embeddedCliGetToken(args, token), "-d"))
     {
-      dump = true;
-    }
-    else
-    {
-      fname = embeddedCliGetToken(args, token);
+        // -d parameter means "dump" mode, no ANSII sequences
+        // or colors
+        if (!strcmp(embeddedCliGetToken(args, token), "-d"))
+        {
+            dump = true;
+        }
+        else
+        {
+            fname = embeddedCliGetToken(args, token);
+        }
     }
 
+    // get filesize for alloc size of buffer
     ssize_t fileLen = flockfs.getFileSize(fname);
     if (fileLen == -1)
     {
@@ -516,10 +537,9 @@ void onCat(EmbeddedCli *cli, char *args, void *context)
     }
 
     char* buf = (char*)ps_malloc(fileLen + 1);
-    memset(buf, 0, fileLen + 1);
-    
     if (buf)
     {
+      memset(buf, 0, fileLen + 1);
       size_t read = flockfs.readFile(fname, (uint8_t*)buf, fileLen);
 
       if (!dump)      Serial.printf(CLI_CYA);
@@ -554,8 +574,8 @@ void onCat(EmbeddedCli *cli, char *args, void *context)
 * Command to reboot the system.  Will unmount filesytem
 * before rebooting, so there is a slight delay
 *
-* Parameters:
-*   None
+* if --factory is passed with the command, do a factory
+* reset before restarting
 *
 ******************************************************/
 void onReset(EmbeddedCli *cli, char *args, void *context)
@@ -597,13 +617,13 @@ void onStatus(EmbeddedCli* cli, char* args, void* context)
   {
     struct tm tm_;
     gps.getTime(&tm_);
-    Serial.printf(CLI_YEL "\tGPS current coordinates are " CLI_BOLD_GRN "%02.5f, %03.5f\r\n" CLI_RESET, 
+    Serial.printf(CLI_YEL "\tGPS current coordinates are " CLI_BOLD_GRN "%02.5f, %03.5f\r\n" CLI_RESET,
               gps.getLatitude(), gps.getLongitude());
-    
-    Serial.printf(CLI_YEL "\tGPS current time/date (gmt) is " CLI_BOLD_GRN "%02d:%02d:%02d %d/%d/%d\r\n" CLI_RESET, 
+
+    Serial.printf(CLI_YEL "\tGPS current time/date (gmt) is " CLI_BOLD_GRN "%02d:%02d:%02d %d/%d/%d\r\n" CLI_RESET,
               tm_.tm_hour, tm_.tm_min, tm_.tm_sec,
               tm_.tm_mon, tm_.tm_mday, tm_.tm_year + 1900);
-    
+
     Serial.printf(CLI_YEL "\tNumber of satellites currently tracked: " CLI_BOLD_GRN "%d\r\n" CLI_RESET, gps.getSatelliteCount());
   }
   else
@@ -615,12 +635,12 @@ void onStatus(EmbeddedCli* cli, char* args, void* context)
   size_t cap;
   size_t used;
   flockfs.getInfo(&cap, &used);
-  Serial.printf(CLI_YEL "\tTotal capacity " CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "bytes, " 
+  Serial.printf(CLI_YEL "\tTotal capacity " CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "bytes, "
                 CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "used (" CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "KiB free)\r\n" CLI_RESET,
                 cap, used, (cap - used) / 1024);
 
   Serial.printf(CLI_CYA "->Memories:\r\n" CLI_RESET);
-  Serial.printf(CLI_YEL "\tInternal total heap " CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "bytes, " CLI_BOLD_GRN "%d" 
+  Serial.printf(CLI_YEL "\tInternal total heap " CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "bytes, " CLI_BOLD_GRN "%d"
                 CLI_RESET " " CLI_YEL "used (" CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "KiB free)\r\n" CLI_RESET,
                 ESP.getHeapSize(), (ESP.getHeapSize() - ESP.getFreeHeap()), ESP.getFreeHeap() / 1024);
   Serial.printf(CLI_YEL "\tPSRAM total heap " CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "bytes, " CLI_BOLD_GRN "%d"

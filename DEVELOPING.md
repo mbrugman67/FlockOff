@@ -1,14 +1,14 @@
 # General instructions for developing
 ## Prerequisites
-### Clone this repo
+### Clone or fork this repo
 Guessing you've already done that.
 
 ### Install Arduino IDE
-As stated in the main README, this project is using the Arduino IDE instead of VS Code/PlatformIO becasue I am very turned off of the way Copilot is being pushed into my face in VS Code.  Screw that.
+As stated in the main README, this project is using the Arduino IDE instead of VS Code/PlatformIO because I am very turned off of the way Copilot is being pushed into my face in VS Code.  Screw that.
 
 *For the love of God, let's hope qualcomm doesn't fuck up Arduino and start adding AI bullshit.*
 
-Start by going to https://docs.arduino.cc/software/ide/ to download the IDE.  **Don't use the cloud version - work locally**.  Get the installer for your flavor of OS and install it in the normal way.
+Start by going to the [Arduino website](https://docs.arduino.cc/software/ide/) to download the IDE.  **Don't use the cloud version - work locally**.  Get the installer for your flavor of OS and install it in the normal way.
 
 ### Get the needed board/library stuffs for the project
 Start the Arduino IDE.  From the menu, select `Tools >> Boards >> Board Manager...`.  
@@ -49,8 +49,8 @@ Global variables use 52972 bytes (16%) of dynamic memory, leaving 274708 bytes f
 If you're interested, use the Arduino preferences menu and enable `verbose output`
 
 ## Some developer notes
-The code is c++.  There are a couple of external libraries used (that is, outside of the ESP32 and Arduino libraries).  One is for the GPS sentence decoding, the other is for command line handling:
+The code is c++.  There are a couple of external libraries used (that is, outside of the ESP32 and Arduino libraries):
 + `minmea` is from Kosma Moczek <kosma@cloudyourcar.com>, and is used for the GPS handler.  Minor mods were made to better match this project.  Look for files `./src/Flocker/minmea.cpp` and `./src/Flocker/minmea.h`
-+ `embedded_cli` is from 2021 Sviatoslav Kokurin (funbiscuit).  It is used for the command-line interface, and also has been slightly modified for use here.  Look for `./src/Flocker/embedded_cli.h`
++ `embedded_cli` is from Sviatoslav Kokurin (funbiscuit).  It is used for the command-line interface, and also has been slightly modified for use here.  Look for `./src/Flocker/embedded_cli.h`
 
-You may notice a mix of `new/delete` and `malloc/free`; this is generally a bad thing that leads to heap corruption, but in this case is intentional.  There are two heaps in play here; one heap in the internal SRAM which uses `new/delete`, and the other in the PSRAM chip.  That external memory is using `ps_malloc() and delete()` for it's heap.  If you add anything that will dynamically use memory, try to do it with `ps_malloc()` so that it is allocated in the external 8MB PSRAM.  Slightly slower, but much better.
+You may notice a mix of `new/delete` and `malloc/free` (actually `ps_malloc()`); this is generally a bad thing that leads to heap corruption, but in this case is intentional.  There are two heaps in play here; one heap in the internal SRAM which uses `new/delete`, and the other in the PSRAM chip.  That external memory is using `ps_malloc() and free()` for it's heap.  If you add anything that will dynamically use memory, try to do it with `ps_malloc()` so that it is allocated in the external 8MB PSRAM.  Slightly slower, but much better.

@@ -1,3 +1,12 @@
+/********************************************************************
+ * flockCfg.h
+ ********************************************************************
+ * Declaration of the config class.  Configuration is stored
+ * in a JSON file.  This will handle reading/writing/backing up
+ * the config file.
+ *
+ * Also, there's a handler for setting config values over the CLI
+ *******************************************************************/
 #ifndef CFG_H_
 #define CFG_H_
 
