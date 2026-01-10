@@ -1,7 +1,7 @@
 ![image](./img/header.png)
 
 # FlockOff
-Wardriving Flock Security camera detection
+This project started as a device specifically to detect Flock security ALPR devices, but has grown into a more generic WiFi/Bluetooth LE scanner/alert wardriving tool.
 
 ## Description
 This started of strictly as a Flock detector, but grew into more.  In general, it is a device to monitor WiFi and BTLE networks, setting an indicator whenever a broadcaster is found that meets preset parameters.  For WiFi networks, those parameters can be a MAC OID or network name (SSID).  For Bluetooth, the matching critera can be name, MAC, or by specific 16-bit UUIDs.
@@ -16,6 +16,7 @@ The files contained in the project:
 + `./img` - images used in this README
 + `./py` - simply python3 script to interact with the flocker (notes below)
 + `./src` - source code (arduino project) for the ESP32 (notes below)
++ `./case` - sample 3D printer `.stl` and openSCAD files for a case
 
 ### Hardware
 ![image](./img/kicad.png)
@@ -189,11 +190,12 @@ system.log
 ```  
 The parameters to the `flock.py` script are:
 + `--port PORT` - the serial port of the connected device
-+ `--dbfile FILE` - name of the database file to use (it will be created if it does not exist)
++ `--dbfile FILE` - name of the database file to use (it will be created if it does not exist).  This is only required if the `load` command is issued.
 + Command - this is one of a few commands:
   + `--dir` - list the files on the device
   + `--cat FILE` - list the contents of the specified file
-  + `--load FILE` - load the specified JSON file into database tables
+  + `--load FILE` - load the specified JSON file into database tables'
+  + `--download FILE` - download the specified FILE from the device to the local filesystem.  The local copy will have the same name as the file on the device.
 
 The above `--dir` comamnd showed our `survey.example.json` from the survey.  Let's load it into the database tables:
 ```  
@@ -201,6 +203,10 @@ The above `--dir` comamnd showed our `survey.example.json` from the survey.  Let
 └─$ python3 ./flock.py --dbfile example.db --port /dev/ttyACM0 --load survey.example.json
 Loaded 12 WiFi devices, 21 BTLE devices from survey "'Example" at 2025-12-15 15:56:52
 ```  
+
+Note that if the database file didn't exist before this command, the script will also populate the data tables with the YAML and JSON files for known manufacturer OID and UUID data.
+
+
 ### Survey database
 ![image](./img/schema.png)
 The database schema can be seen in `./src/py/survey.db.schema`
