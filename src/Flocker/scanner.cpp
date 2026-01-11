@@ -366,8 +366,6 @@ private:
   }
 };
 
-
-
 bool SCANNER::begin()
 {
   channelInx = 0;
@@ -392,6 +390,8 @@ bool SCANNER::begin()
   return (true);
 }
 
+static btAdvertisedCBs* btCBs = nullptr;
+static void* btCBMem = nullptr;
 
 void SCANNER::startBLE()
 {
@@ -402,9 +402,17 @@ void SCANNER::startBLE()
     delay(100);
   }
 
+  // doing a placement new to allocate the btAdvertisedCBs class
+  // this may seem goofy, but we want to allocate in PSRAM instead 
+  // of on-die SRAM
+  btCBMem = ps_malloc(sizeof(btAdvertisedCBs));
+  btAdvertisedCBs* btCBs = new (btCBMem) btAdvertisedCBs();
+
+  flockLog.addLogLine("SCAN", "Address of btCBMem is %p, address of btCBs is %p\r\n", btCBMem, btCBs);
+
   BLEDevice::init("");
   btScanner = BLEDevice::getScan();
-  btScanner->setScanCallbacks(new btAdvertisedCBs(), true);
+  btScanner->setScanCallbacks(btCBs, true);
   btScanner->setActiveScan(true);
   btScanner->setInterval(100);
   btScanner->setWindow(99);
@@ -423,6 +431,12 @@ void SCANNER::stopBLE()
     btScanner->clearResults();
     NimBLEDevice::deinit(true);
     btScanner = nullptr;
+
+    // because we did placement new, we need to explicitly call the destructor
+    if (btCBs != nullptr)   btCBs->~btAdvertisedCBs();
+    if (btCBMem != nullptr) free (btCBMem);
+    btCBs = nullptr;
+    btCBMem = nullptr;
   }
 }
 
@@ -487,7 +501,7 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
     this->startBLE();
     delay(interval * 5);
     this->stopBLE();
-    Serial.printf(CLI_CYA "BLE Done, survey complete, found %d devices\r\n", bleDevices.size());
+    Serial.printf(CLI_CYA "BLE Done\r\n");
     flockLog.addLogLine("SCAN", "survey() BTLE scan done\r\n");
   }
 
@@ -577,9 +591,14 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
     btdevs.add(dev);
   }
 
-  Serial.printf(CLI_CYA "Found " CLI_GRN "%d" CLI_CYA " devices:\r\n" CLI_RESET, wifiDevices.size() + bleDevices.size());
-  //serializeJsonPretty(sur, Serial);
-  Serial.printf("\r\n");
+  Serial.printf(CLI_CYA "Survey done, found " CLI_GRN "%d" CLI_CYA " WiFi devices, " CLI_GRN "%d" CLI_CYA " Bluetooth devices.\r\n" CLI_RESET, 
+      wifiDevices.size(), bleDevices.size());
+
+  if (!fname || !strlen(fname))
+  {
+    serializeJsonPretty(sur, Serial);
+    Serial.printf("\r\n");
+  }
 
   if (fname && strlen(fname))
   {
