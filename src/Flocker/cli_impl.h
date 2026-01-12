@@ -622,7 +622,7 @@ void onStatus(EmbeddedCli* cli, char* args, void* context)
 
     Serial.printf(CLI_YEL "\tGPS current time/date (gmt) is " CLI_BOLD_GRN "%02d:%02d:%02d %d/%d/%d\r\n" CLI_RESET,
               tm_.tm_hour, tm_.tm_min, tm_.tm_sec,
-              tm_.tm_mon, tm_.tm_mday, tm_.tm_year + 1900);
+              tm_.tm_mon + 1, tm_.tm_mday, tm_.tm_year + 1900);
 
     Serial.printf(CLI_YEL "\tNumber of satellites currently tracked: " CLI_BOLD_GRN "%d\r\n" CLI_RESET, gps.getSatelliteCount());
   }

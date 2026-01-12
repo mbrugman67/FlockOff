@@ -19,7 +19,6 @@
 #define DEVICENAME "deviceName"
 #define LEDBRIGHTNESS "LEDBrightness"
 #define TIMEZONE "timeZone"
-#define WIFIAPS "WifiAPs"
 #define DEBUGENABLED "debugEnabled"
 #define DEBUGROLLCOUNT "debugLogRollCount"
 #define MINRSSI "minRSSI"
@@ -27,10 +26,6 @@
 // name of configuration file
 #define CONFIG_FILENAME "config.json"
 #define CONFIG_BACKUP_FILENAME "config.bak"
-
-// default WiFi names corresponding to know surveillance devices.  This
-// list is the initial - more can be added later by the user
-const char* defaultWiFiAPs[] = {"flock", "fs ext Battery", "penguin", "pigvision"};
 
 // Struct for following list of timezones
 struct cfg_tz_t
@@ -149,15 +144,6 @@ bool CONFIG::buildDefualtConfig()
   cfg[DEBUGENABLED] = false;                   // debug logging enabled?
   cfg[DEBUGROLLCOUNT] = 3;                     // how many previous debug files to save
   cfg[MINRSSI] = -85;                          // minimum signal strength for alert
-
-  JsonArray wifiAPs = cfg[WIFIAPS].to<JsonArray>();
-
-  size_t dfltAPCount = sizeof(defaultWiFiAPs) / sizeof(*defaultWiFiAPs);
-
-  for(size_t ii = 0; ii < dfltAPCount; ++ii)
-  {
-    wifiAPs.add(defaultWiFiAPs[ii]);
-  }
 
   this->setNewConfigFlags(true);
   return (this->writeConfig());
