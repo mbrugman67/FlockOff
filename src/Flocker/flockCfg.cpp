@@ -121,7 +121,7 @@ bool CONFIG::begin()
     deserializeJson(cfg, json);
 
     // free memory
-    delete (json);
+    free (json);
 
     // tell the world there is new config data available
     this->setNewConfigFlags(true);

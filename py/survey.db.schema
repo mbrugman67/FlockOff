@@ -1,50 +1,63 @@
-CREATE TABLE IF NOT EXISTS surveys (
-	surveyInx INTEGER PRIMARY KEY AUTOINCREMENT,
-	notes TEXT NOT NULL,
-	dateTime TEXT NOT NULL,
-	longitude REAL NOT NULL,
-	lattitude REAL NOT NULL,
-	satCount INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS wifi (
-	wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
-	surveyInx INTEGER NOT NULL,
-    type TEXT NOT NULL,
-	ssid TEXT NOT NULL,
-	bssid TEXT NOT NULL,
-	rssi INTEGER NOT NULL,
-	channel INTEGER NOT NULL,
-	FOREIGN KEY (surveyInx)
-		REFERENCES surveys (surveyInx)
-			ON DELETE CASCADE
-			ON UPDATE NO ACTION
-);
-CREATE TABLE IF NOT EXISTS btle (
-	btInx INTEGER PRIMARY KEY AUTOINCREMENT,
-	surveyInx INTEGER NOT NULL,
-	name TEXT NOT NULL,
-	mac TEXT NOT NULL,
-	rssi INTEGER NOT NULL,
-	FOREIGN KEY (surveyInx)
-		REFERENCES surveys (surveyInx)
-			ON DELETE CASCADE
-			ON UPDATE NO ACTION
-);
-CREATE TABLE IF NOT EXISTS uuid16 (
-	uuidInx INTEGER PRIMARY KEY AUTOINCREMENT,
-	btInx INTEGER NOT NULL,
-	uuid16 INTEGER NULL,
-	FOREIGN KEY (btInx)
-		REFERENCES btle (btInx)
-			ON DELETE CASCADE
-			ON UPDATE NO ACTION
-);
-CREATE TABLE IF NOT EXISTS uuid128 (
-	uuidInx INTEGER PRIMARY KEY AUTOINCREMENT,
-	btInx INTEGER NOT NULL,
-	uuid128 TEXT NULL,
-	FOREIGN KEY (btInx)
-		REFERENCES btle (btInx)
-			ON DELETE CASCADE
-			ON UPDATE NO ACTION
-);
+CREATE TABLE surveys (
+                        surveyInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        notes TEXT NOT NULL,
+                        dateTime TEXT NOT NULL,
+                        longitude REAL NOT NULL,
+                        lattitude REAL NOT NULL,
+                        satCount INTEGER NOT NULL
+                    );
+CREATE TABLE sqlite_sequence(name,seq);
+CREATE TABLE wifi (
+                        wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        surveyInx INTEGER NOT NULL,
+                        type TEXT NOT NULL,
+                        ssid TEXT NOT NULL,
+                        bssid TEXT NOT NULL,
+                        rssi INTEGER NOT NULL,
+                        channel INTEGER NOT NULL,
+                        FOREIGN KEY (surveyInx)
+                            REFERENCES surveys (surveyInx)
+                                ON DELETE CASCADE
+                                ON UPDATE NO ACTION
+                    );
+CREATE TABLE btle (
+                        btInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        surveyInx INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        mac TEXT NOT NULL,
+                        rssi INTEGER NOT NULL,
+                        FOREIGN KEY (surveyInx)
+                            REFERENCES surveys (surveyInx)
+                                ON DELETE CASCADE
+                                ON UPDATE NO ACTION
+                    );
+CREATE TABLE uuid16 (
+                        uuidInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        btInx INTEGER NOT NULL,
+                        uuid16 INTEGER NULL,
+                        FOREIGN KEY (btInx)
+                            REFERENCES btle (btInx)
+                                ON DELETE CASCADE
+                                ON UPDATE NO ACTION
+                    );
+CREATE TABLE uuid128 (
+                        uuidInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        btInx INTEGER NOT NULL,
+                        uuid128 TEXT NULL,
+                        FOREIGN KEY (btInx)
+                            REFERENCES btle (btInx)
+                                ON DELETE CASCADE
+                                ON UPDATE NO ACTION
+                    );
+CREATE TABLE bluetooth_uuids (
+                        svcInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        uuidHex TEXT NOT NULL,
+                        uuidDec INT NOT NULL,
+                        name TEXT NOT NULL,
+                        id TEXT NOT NULL
+                    );
+CREATE TABLE mac_vendor (
+                        macInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        prefix TEXT NOT NULL,
+                        vendorName TEXT NOT NULL
+                    );

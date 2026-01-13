@@ -48,6 +48,41 @@ Global variables use 52972 bytes (16%) of dynamic memory, leaving 274708 bytes f
 #### Viewing full build Output
 If you're interested, use the Arduino preferences menu and enable `verbose output`
 
+## Loading device
+From the Arduino menu, select `Tools >> Port...` and select the serial port where the device is connected to your computer.  On Linux, it should be something like `/dev/ttyACM0`; on MacOS look for something like `/dev/cu.usbmodemXXXXX`; and on Windows it should be  like `COMx`.  (I can't verify it on Windows - I don't have a Windows box to try it.)
+
+Make sure you don't have the device open in a serial terminal, then from the Arduino menu, select `Sketch >> Upload`.  This will start a full build and then try to upload to the device.
+
+On a 2020-era Intel Mcbook Air, the build process takes about 2 minutes, and then another minute or so to prepare and upload the binary to the device.  On a 2023-era Intel Linux computer, it's about half that for both.  Either way, watch the status box at the bottom of the IDE for progress.
+
+## Accessing the device's command line interface
+Connect a USB cable from the device to a computer or Android device.  
+
+*It seems IOS devices like iPads and iPhones don't support USB serial device communication - if you find otherwise, please let me know!*
+
+You'll need a serial terminal program.  Make sure you use something that emulates a VT-102 type terminal - the CLI uses ANSII escape codes for color, bold, etc.  I've found the following work pretty well:
++ Linux: I use [tio](https://github.com/tio/tio/releases).  You can build it from source or install it as a snap.  See the documentation.  I generally use `minicom` for serial devices, but I found `tio` did a better job with VT-102 emulation.
++ MacOS: I used [tio](https://github.com/tio/tio/releases).  Again, build from source or install with Mac Homebrew.  I tried some GUI serial terminals from the App store, but none of the free terminals I tried handled VT-102.  Your mileage may vary, or maybe a paid app would work better.
++ Android: [Serial USB Terminal]
++ Windows: Just a wild guess, but I would try [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html).  I haven't tried using the device on Windows, but I have had good results with PuTTY for VT102 emulation.
+
+*I'm sure there are many, many other serial terminal alternatives to use; these are just my preferences and suggestions.  I've also had great luck with `minicom` on Linux/MacOS.*
+
+Connect the USB cable, start up your terminal of choice.  Serial parameters are 115200 baud, 8N1.  Hit the `<RETURN>` key and you should get the prompt.  To test, try the `status` command:
+![image](./img/terminal.png)
+
+Use the `help` command to get a list of commands.  Each command has specific help that can be seen with the '-h` parameter, for example:
+![image](./img/terminal2.png)
+
+## Troubleshooting
+A fresh pull/clone of the `main` branch should always produce a working binary to load.  If a `main` build isn't working, try the following:
+| Symptom | Try this |  
+| --- | --- |  
+| Hard bootloop, large LEDs do not flash or show solid blue, computer sees device, but Arduino and/or serial won't connect, etc. | Follow [instructions here](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/#bootloader-mode) to force the EPS32 into bootloader mode and reload from Arduino |
+| Device appears to be operating, Arduino can load firmware, serial terminal connects to no CLI | In the Arduino IDE menu, select `Tools` and make sure `USB CDC on Boot` is set to "Enabled".  If not, set to "Enabled" and re-upload to device | 
+| Device bootloops, CLI on serial terminal briefly shows `failed to init` | In the Arduino IDE menu, select `Tools` and make sure `PSRAM` is set to "OPI PSRAM", and `Partition Scheme` is "Custom".  If not, set correctly and re-upload to device |  
+
+
 ## Some developer notes
 The code is c++.  There are a couple of external libraries used (that is, outside of the ESP32 and Arduino libraries):
 + `minmea` is from Kosma Moczek <kosma@cloudyourcar.com>, and is used for the GPS handler.  Minor mods were made to better match this project.  Look for files `./src/Flocker/minmea.cpp` and `./src/Flocker/minmea.h`
