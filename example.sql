@@ -4,29 +4,36 @@
 select *
 from surveys s order by s.dateTime;
 
--- all distinct wifi beacons with vendor name and survey data
-select distinct s.dateTime, s.longitude, s.lattitude, w.ssid, w.bssid, w.type, mv.vendorName
-from wifi w
-	join surveys s on s.surveyInx = w.surveyInx
-	left join mac_vendor mv on substr(w.bssid, 1, 8) like mv.prefix
-where w.type like 'beacon'
-order by w.bssid;
+
+-- wifi stations attached to access points
+select distinct sta.subtype "station data subtype",
+		ap.ssid "AP SSID",
+		ap.bssid "AP BSSID",
+		sta.sourceAddr "station MAC",
+		sta.channel "CH",
+		mv.vendorName "station vendor"
+from wifi_data sta
+join wifi_management ap on ap.bssid = sta.destAddr and ap.channel = sta.channel and ap.surveyInx = sta.surveyInx
+left join mac_vendor mv on mv.prefix like substr(sta.sourceAddr, 1, 8)
+where sta.surveyInx = 2
+order by ap.bssid;
 
 -- all distinct bluetooth beacons with vendor, uuid, and survey data
-select distinct s.dateTime, s.longitude, s.lattitude, b.name, b.mac, bu.uuidHex, bu.name
+select distinct s.dateTime, s.longitude, s.lattitude, b.name, b.mac, b.rssi, bu.uuidHex, bu.name
 from btle b
 	join surveys s on s.surveyInx = b.surveyInx
 	left join uuid16 u on b.btInx = u.btInx
 	left join bluetooth_uuids bu on u.uuid16 = bu.uuidDec
-order by bu.name DESC, b.name DESC, b.mac;
+order by bu.name DESC, b.rssi desc, b.name DESC, b.mac;
 
--- wifi count and unique mac address (with vendor name if applicable)
-select distinct count(w.bssid), w.ssid, w.bssid, mv.vendorName
-from wifi w
-	left join mac_vendor mv on substr(w.bssid, 1, 8) like mv.prefix
-where w.type like 'beacon'
-group by w.bssid
-order by count(w.bssid) desc;
+-- bluetooth for a specific survey
+select b.name, b.mac, b.rssi, u.uuidHex, u.name
+from btle b
+	join surveys s on b.surveyInx = s.surveyInx
+	left join uuid16 u16 on b.btInx = u16.btInx
+	left join bluetooth_uuids u on u16.uuid16 = u.uuidDec
+where s.surveyInx  = 4
+order by b.rssi DESC, b.mac;
 
 -- bluetooth count and unique mac address (with vendor name if applicable)
 select distinct count(b.mac), b.mac, mv.vendorName

@@ -45,6 +45,7 @@ class surveyJson:
         longitude = self.getItem("LocationLongLat")[1]
         lattitude = self.getItem("LocationLongLat")[0]
         satCount = self.getItem("SatelliteCount")
+        version = self.getItem("DataVersion")
 
         if (
             notes == None
@@ -56,39 +57,44 @@ class surveyJson:
             return None
 
         else:
-            return (notes, dateTime, longitude, lattitude, satCount)
+            return (notes, version, dateTime, longitude, lattitude, satCount)
 
     def getNextWifiDevice(self):
         if self._wifiInx >= self._wifiCount:
             return None
 
         try:
-            type = self._json["WiFiDevices"][self._wifiInx]["Subtype"]
+            type = self._json["WiFiDevices"][self._wifiInx]["Type"]
+            subtype = self._json["WiFiDevices"][self._wifiInx]["Subtype"]
             ssid = self._json["WiFiDevices"][self._wifiInx]["SSID"]
-            bssid = self._json["WiFiDevices"][self._wifiInx]["BSSID"]
+            sourceAddr = self._json["WiFiDevices"][self._wifiInx]["SourceAddr"]
+            destAddr = self._json["WiFiDevices"][self._wifiInx]["DestAddr"]
             channel = self._json["WiFiDevices"][self._wifiInx]["Channel"]
-            rssi = self._json["WiFiDevices"][self._wifiInx]["RSSSI"]
-        except KeyError:
+            rssi = self._json["WiFiDevices"][self._wifiInx]["RSSI"]
+        except KeyError as e:
+            print(e)
             return None
 
         self._wifiInx = self._wifiInx + 1
 
-        return (type, ssid, bssid, channel, rssi)
+        return (type, subtype, ssid, sourceAddr, destAddr, channel, rssi)
 
     def getWifiDevice(self, inx: int):
         if inx >= self._wifiCount:
             return None
 
         try:
-            type = self._json["WiFiDevices"][inx]["Subtype"]
+            type = self._json["WiFiDevices"][inx]["Type"]
+            subtype = self._json["WiFiDevices"][inx]["Subtype"]
             ssid = self._json["WiFiDevices"][inx]["SSID"]
-            bssid = self._json["WiFiDevices"][inx]["BSSID"]
+            sourceAddr = self._json["WiFiDevices"][inx]["SourceAddr"]
+            destAddr = self._json["WiFiDevices"][inx]["DestAddr"]
             channel = self._json["WiFiDevices"][inx]["Channel"]
-            rssi = self._json["WiFiDevices"][inx]["RSSSI"]
+            rssi = self._json["WiFiDevices"][inx]["RSSI"]
         except KeyError:
             return None
 
-        return (type, ssid, bssid, channel, rssi)
+        return (type, subtype, ssid, sourceAddr, destAddr, channel, rssi)
 
     def getNextBTDevice(self):
         if self._bleInx >= self._bleCount:
@@ -143,6 +149,7 @@ class sq3db:
             self._cursor.execute("""
                     CREATE TABLE IF NOT EXISTS surveys (
                         surveyInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        version INTEGER NOT NULL,
                         notes TEXT NOT NULL,
                         dateTime TEXT NOT NULL,
                         longitude REAL NOT NULL,
@@ -155,10 +162,29 @@ class sq3db:
 
         try:
             self._cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS wifi (
+                    CREATE TABLE IF NOT EXISTS wifi_data (
                         wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         surveyInx INTEGER NOT NULL,
-                        type TEXT NOT NULL,
+                        subtype TEXT NOT NULL,
+                        sourceAddr TEXT NOT NULL,
+                        destAddr TEXT NOT NULL,
+                        rssi INTEGER NOT NULL,
+                        channel INTEGER NOT NULL,
+                        FOREIGN KEY (surveyInx)
+                            REFERENCES surveys (surveyInx)
+                                ON DELETE CASCADE
+                                ON UPDATE NO ACTION
+                    );
+            """)
+        except sqlite3.OperationalError as ex:
+            print(ex)
+
+        try:
+            self._cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS wifi_management (
+                        wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        surveyInx INTEGER NOT NULL,
+                        subtype TEXT NOT NULL,
                         ssid TEXT NOT NULL,
                         bssid TEXT NOT NULL,
                         rssi INTEGER NOT NULL,
@@ -348,8 +374,8 @@ class sq3db:
         self._dbConnection.commit()
 
     def insertSurveyHeader(self, header: tuple):
-        qstring = 'INSERT INTO surveys (notes, dateTime, longitude, lattitude, satCount) values ("{}","{}",{},{},{});'.format(
-            header[0], header[1], header[2], header[3], header[4]
+        qstring = 'INSERT INTO surveys (notes, version, dateTime, longitude, lattitude, satCount) values ("{}", {},"{}",{},{},{});'.format(
+            header[0], header[1], header[2], header[3], header[4], header[5]
         )
 
         self._cursor.execute(qstring)
@@ -360,9 +386,15 @@ class sq3db:
         ).fetchone()[0]
 
     def insertWiFiDevice(self, pk: int, wifi: tuple, delayCommit: bool = False) -> None:
-        qstring = 'INSERT INTO wifi (surveyInx, type, ssid, bssid, channel, rssi) values ({},"{}","{}","{}",{},{});'.format(
-            pk, wifi[0], wifi[1], wifi[2], wifi[3], wifi[4]
-        )
+        qstring = ""
+        if wifi[0] == "Data":
+            qstring = 'INSERT INTO wifi_data (surveyInx, subtype, sourceAddr, destAddr, channel, rssi) values ({},"{}","{}","{}",{},{});'.format(
+                pk, wifi[1], wifi[3], wifi[4], wifi[5], wifi[6]
+            )
+        else:
+            qstring = 'INSERT INTO wifi_management (surveyInx, subtype, ssid, bssid, channel, rssi) values ({},"{}","{}","{}",{},{});'.format(
+                pk, wifi[1], wifi[2], wifi[3], wifi[5], wifi[6]
+            )
 
         self._cursor.execute(qstring)
 

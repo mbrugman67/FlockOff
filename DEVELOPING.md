@@ -71,7 +71,7 @@ You'll need a serial terminal program.  Make sure you use something that emulate
 Connect the USB cable, start up your terminal of choice.  Serial parameters are 115200 baud, 8N1.  Hit the `<RETURN>` key and you should get the prompt.  To test, try the `status` command:  
 ![image](./img/terminal.png)
 
-Use the `help` command to get a list of commands.  Each command has specific help that can be seen with the '-h` parameter, for example:
+Use the `help` command to get a list of commands.  Each command has specific help that can be seen with the '-h` parameter, for example:  
 ![image](./img/terminal2.png)
 
 ## Troubleshooting
@@ -83,6 +83,8 @@ If a `main` build isn't working, try the following:
 | Hard bootloop, large LEDs do not flash or show solid blue, computer sees device, but Arduino and/or serial won't connect, etc. | Follow [instructions here](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/#bootloader-mode) to force the EPS32 into bootloader mode and reload from Arduino |  
 | Device bootloops, CLI on serial terminal briefly shows `failed to init` | In the Arduino IDE menu, select `Tools` and make sure `PSRAM` is set to "OPI PSRAM", and `Partition Scheme` is "Custom".  If not, set correctly and re-upload to device |  
 | Device appears to be operating, Arduino can load firmware, serial terminal connects, but no CLI response | In the Arduino IDE menu, select `Tools` and make sure `USB CDC on Boot` is set to "Enabled".  If not, set to "Enabled" and re-upload to device |  
+
+*NOTE:  IF YOU UPDATE THE ARDUINO IDE (AND SOMETIMES JUST RANDOMLY), THE IDE WILL RESET ALL OF THE BOARD SETTINGS!*  So, if things suddenly stop working, go to the `Tools` menu and verify the board settings (CDC on Boot, PSRAM, Partitioning Scheme, Flash size, etc.).
 
 If none of those work, open an issue in this repo.
 

@@ -19,7 +19,24 @@
 
 #define BIG_BUF_SIZE (32 * 1024)
 
-// We're only looking at management 802.11 frames.  There are 16
+#define DATA_FRAME_SUBTYPE_DATA 0x00
+#define DATA_FRAME_SUBTYPE_DATA_CF_ACK 0x01
+#define DATA_FRAME_SUBTYPE_DATA_CF_POLL 0x02
+#define DATA_FRAME_SUBTYPE_DATA_CF_ACK_CF_POLL 0x03
+#define DATA_FRAME_SUBTYPE_DATA_NO_DATA_NULL 0x04
+#define DATA_FRAME_SUBTYPE_DATA_NO_DATA_CF_ACK 0x05
+#define DATA_FRAME_SUBTYPE_DATA_NO_DATA_POLL 0x06
+#define DATA_FRAME_SUBTYPE_DATA_NO_DATA_CF_ACK_CF_POLL 0x07
+#define DATA_FRAME_SUBTYPE_DATA_QOS_DATA 0x08
+#define DATA_FRAME_SUBTYPE_DATA_QOS_CF_ACK 0x09
+#define DATA_FRAME_SUBTYPE_DATA_QOS_CF_POLL 0x0a
+#define DATA_FRAME_SUBTYPE_DATA_QOS_CF_ACK_CF_POLL 0x0b
+#define DATA_FRAME_SUBTYPE_DATA_QOS_NO_DATA 0x0c
+#define DATA_FRAME_SUBTYPE_DATA_RESERVED_1 0x0d
+#define DATA_FRAME_SUBTYPE_DATA_NO_DATA_QOS_POLL 0x0e
+#define DATA_FRAME_SUBTYPE_DATA_NO_DATA_QOS_CF_ACK_CF_POLL 0x0f
+
+// There are 16
 // subtypes of management frames (as #defined here).  The packet
 // structure is different for each subtype, but in general:
 //   HEADER (fixed size)
@@ -66,14 +83,22 @@ uint8_t fixedParameterLength[] = {
   0   // 0x07 - reserved subtype
 };
 
+enum wifi_pkt_t
+{
+  wifi_management,
+  wifi_data
+};
+
 // structure to hold details about every device found; not just
 // Flock type things at this point (found by WiFi)
 struct __attribute__((packed)) found_wifi_t
 {
+  wifi_pkt_t type;
   uint8_t subtype;
   uint8_t channel;
   char ssid[SSID_LEN + 1];
   uint8_t mac[6];
+  uint8_t assoc[6];
   uint32_t timestamp;
   int8_t rssi;
 };
@@ -132,13 +157,16 @@ static std::map<uint32_t, found_ble_t> bleDevices;
 static std::map<uint32_t, found_ble_t>::const_iterator citBleDevices;
 
 void reverseBytes(uint8_t* data, size_t len);
+const char* wifiPktTypeToText(enum wifi_pkt_t t);
+const char* WiFiMgmtSubtypeToText(uint8_t stype);
+const char* WiFiDataSubtypeToText(uint8_t stype);
 
 /*************************************************
 * Promiscuous mode packet callback handler
 *
 **************************************************
-* If an 802.11 packet of the WIFI_MANAGEMENT is
-* seen, add it to a std::map of results.  
+* If an 802.11 packet of the WIFI_MANAGEMENT or 
+* WIFI_DATA is seen, add it to a std::map of results.  
 *
 * Note, before adding, check to see if that one
 * is already in the map to prevent dups
@@ -149,6 +177,8 @@ void reverseBytes(uint8_t* data, size_t len);
 *************************************************/
 void wifi_pkt_hndlr(void* buff, wifi_promiscuous_pkt_type_t type)
 {
+  bool goodPkt = false;
+
   // make some sense of the buffer.  The passed buffer is of type promiscuous packet;
   // we dont' care about most of that (other than the packet length), so just skip
   // right to the payload, which is the start of the header
@@ -161,81 +191,104 @@ void wifi_pkt_hndlr(void* buff, wifi_promiscuous_pkt_type_t type)
     return;
   }
 
+  // a place to store the results
+  found_wifi_t wifi;
+  memset(wifi.ssid, 0, SSID_LEN + 1);   // clear buffer for ssid
+
+  //uint8_t stype = ((hdr->frame_ctrl & 0xFF) >> 4) & 0x0F;
+  wifi.subtype = ((hdr->frame_ctrl & 0xFF) >> 4) & 0x0F;;                 // keep track of the frame subtype
+
   // get the length of the packet (minus header stuffs and CRC32);
   size_t pktLen = ppkt->rx_ctrl.sig_len - sizeof(*hdr) - 4; // last 4 is the CRC32
 
-  // IEEE 802.11 Wifi header - get the subtype.  We know these are only management
-  // frames because we set the promiscuous mode filter for them
-  uint8_t stype = ((hdr->frame_ctrl & 0xFF) >> 4) & 0x0F;
-
-  // remaining packet length, reduced by count of fixed data bytes
-  if (pktLen > fixedParameterLength[stype])
+  // this is a management packet - a beacon, probe request/response,
+  if (type == WIFI_PKT_MGMT)
   {
-    pktLen -= fixedParameterLength[stype];
-  }
-  else
-  {
-    return; // this is one of the short management packets without any tagged data
-  }
+    wifi.type = wifi_management;
 
-  // make sense out of the payload.  This depends a lot on the frame subtype; each subtype
-  // has zero or more bytes if "fixed data", followed by zero or more tagged parameters.
-  // skip past the fixed data bytes to get to the first tagged parameter
-  const wifi_ieee80211_mgmt_tagged_parameters_t* taggedPar = 
-        (wifi_ieee80211_mgmt_tagged_parameters_t*)&hdr->frame[fixedParameterLength[stype]];
+    // IEEE 802.11 Wifi header - get the subtype for the Mangement type packet
+    //uint8_t stype = ((hdr->frame_ctrl & 0xFF) >> 4) & 0x0F;
 
-  // a place to store the results
-  found_wifi_t wifi;
-  wifi.subtype = stype;                 // keep track of the frame subtype
-  memset(wifi.ssid, 0, SSID_LEN + 1);   // clear buffer for ssid
-
-  // try to get SSID tagged parameter
-  if (pktLen > sizeof(wifi_ieee80211_mgmt_tagged_parameters_t))
-  
-  {
-    // is this parameter an SSID?
-    if (taggedPar->parameter_id == 0)
+    // remaining packet length, reduced by count of fixed data bytes
+    if (pktLen > fixedParameterLength[wifi.subtype])
     {
-      // parameter length is the length of the SSID char array.  
-      // NOT ZERO TERMED, max 32 chars
-      if (taggedPar->length && (taggedPar->length < SSID_LEN))
-      {
-        memcpy(wifi.ssid, taggedPar->data, taggedPar->length);
-      }
-      else
-      {
-        // does someone feel smart?  :/
-        strncpy(wifi.ssid, "<HIDDEN>", SSID_LEN);
-      }
+      pktLen -= fixedParameterLength[wifi.subtype];
+    }
+    else
+    {
+      return; // this is one of the short management packets without any tagged data
+    }
 
-      // populate the rest of the the results
-      wifi.channel = channels[channelInx]; // wifi channel
-      wifi.rssi = ppkt->rx_ctrl.rssi;      // signal strength
-      memcpy(wifi.mac, hdr->addr3, 6);     // MAC of the WiFi AP that sent the packet
-      wifi.timestamp = millis();           // system timestamp (used for aging)
+    // make sense out of the payload.  This depends a lot on the frame subtype; each subtype
+    // has zero or more bytes if "fixed data", followed by zero or more tagged parameters.
+    // skip past the fixed data bytes to get to the first tagged parameter
+    const wifi_ieee80211_mgmt_tagged_parameters_t* taggedPar = 
+          (wifi_ieee80211_mgmt_tagged_parameters_t*)&hdr->frame[fixedParameterLength[wifi.subtype]];
 
-      // generate a key for the std::map - this will be the md5 hash of the found packet struct
-      // Note, do not include the RSSI in the hash, or we'll end up with dups in the map
-      hasher.begin();
-      hasher.add((uint8_t*)&wifi, 39);
-      hasher.calculate();
-      hasher.getBytes(md5sum);
-
-      // kinda hokey, the key are the first 4 bytes of the MD5 hash of the struct.  Shouldn't be collisions....
-      uint32_t key = ((uint32_t)md5sum[0] << 24) | ((uint32_t)md5sum[1] << 16) | 
-                     ((uint32_t)md5sum[2] << 8) | ((uint32_t)md5sum[3]);
-      
-      // have we seen this one already?
-      citWifiDevices = wifiDevices.find(key);
-      if (citWifiDevices == wifiDevices.end())
+    //wifi.subtype = stype;                 // keep track of the frame subtype
+    
+    // try to get SSID tagged parameter
+    if (pktLen > sizeof(wifi_ieee80211_mgmt_tagged_parameters_t))
+    {
+      // is this parameter an SSID?
+      if (taggedPar->parameter_id == 0)
       {
-        // no?  then add it
-        wifiDevices[key] = wifi;
-        //flockLED.pulseRed(LEDS::LED_COMMS, 10);
-      }
-    } // this element is an SSID
-  } // This is an element
-}
+        // parameter length is the length of the SSID char array.  
+        // NOT ZERO TERMED, max 32 chars
+        if (taggedPar->length && (taggedPar->length < SSID_LEN))
+        {
+          memcpy(wifi.ssid, taggedPar->data, taggedPar->length);
+        }
+        else
+        {
+          // does someone feel smart?  :/
+          strncpy(wifi.ssid, "<HIDDEN>", SSID_LEN);
+        }
+      } // the first tagged parameter is the SSID
+    goodPkt = true;
+    } // there is at least one tagged parameter
+  } // this is a management packet
+  else if (type == WIFI_PKT_DATA)
+  {
+    goodPkt = true;
+
+    wifi.type = wifi_data;
+
+    // No subtype for a data packet
+    //uint8_t stype = 255;
+
+  } // this is a data packet
+
+  if (goodPkt)
+  {
+    // populate the rest of the the results
+    wifi.channel = channels[channelInx]; // wifi channel
+    wifi.rssi = ppkt->rx_ctrl.rssi;      // signal strength
+    memcpy(wifi.mac, hdr->addr2, 6);     // MAC of the WiFi AP that sent the packet
+    memcpy(wifi.assoc, hdr->addr1, 6);   // 
+    wifi.timestamp = millis();           // system timestamp (used for aging)
+
+    // generate a key for the std::map - this will be the md5 hash of the found packet struct
+    // Note, do not include the RSSI in the hash, or we'll end up with dups in the map
+    hasher.begin();
+    hasher.add((uint8_t*)&wifi, 45);
+    hasher.calculate();
+    hasher.getBytes(md5sum);
+
+    // kinda hokey, the key are the first 4 bytes of the MD5 hash of the struct.  Shouldn't be collisions....
+    uint32_t key = ((uint32_t)md5sum[0] << 24) | ((uint32_t)md5sum[1] << 16) | 
+                    ((uint32_t)md5sum[2] << 8) | ((uint32_t)md5sum[3]);
+    
+    // have we seen this one already?
+    citWifiDevices = wifiDevices.find(key);
+    if (citWifiDevices == wifiDevices.end())
+    {
+      // no?  then add it
+      wifiDevices[key] = wifi;
+      //flockLED.pulseRed(LEDS::LED_COMMS, 10);
+    }
+  } // adding good packet to map
+} // promisuous wifi packet handler
 
 
 class btAdvertisedCBs : public NimBLEScanCallbacks
@@ -377,8 +430,8 @@ bool SCANNER::begin()
   // turn off promiscuity for now
   esp_wifi_set_promiscuous(false);
 
-  // we're only interested in MANAGEMENT frames
-	const wifi_promiscuous_filter_t filt = {.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT};
+  // we're only interested in MANAGEMENT and DATA frames
+	const wifi_promiscuous_filter_t filt = {.filter_mask = (WIFI_PROMIS_FILTER_MASK_MGMT | WIFI_PROMIS_FILTER_MASK_DATA)};
 	esp_wifi_set_promiscuous_filter(&filt); 
 
   // set callback
@@ -521,6 +574,7 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
   strftime(tstring, 63, "%F %T", tmp);
   sur["DateTime"] = tstring;
   sur["Timezone"] = flockCfg.getTimeZone();
+  sur["DataVersion"] = SURVEY_JSON_VERSION;
 
   JsonArray devs = sur["WiFiDevices"].to<JsonArray>();
   JsonDocument dev;
@@ -529,11 +583,20 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
   {
     dev.clear();
     dev["Method"] = discoveryToText(WIFI_DISCOVERY);
-    dev["Subtype"] = mgmtSubtypeToText(citWifiDevices->second.subtype);
-    dev["BSSID"] = macToText(citWifiDevices->second.mac);
-    dev["Channel"] = citWifiDevices->second.channel;
+    dev["Type"] = wifiPktTypeToText(citWifiDevices->second.type);
+    if (citWifiDevices->second.type == wifi_management)
+    {
+      dev["Subtype"] = WiFiMgmtSubtypeToText(citWifiDevices->second.subtype);
+    }
+    else
+    {
+      dev["Subtype"] = WiFiDataSubtypeToText(citWifiDevices->second.subtype);
+    }
     dev["SSID"] = citWifiDevices->second.ssid;
-    dev["RSSSI"] = citWifiDevices->second.rssi;
+    dev["SourceAddr"] = macToText(citWifiDevices->second.mac);
+    dev["DestAddr"] = macToText(citWifiDevices->second.assoc);
+    dev["Channel"] = citWifiDevices->second.channel;
+    dev["RSSI"] = citWifiDevices->second.rssi;
 
     devs.add(dev);
   }
@@ -623,8 +686,11 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
 
   flockLED.stopBlu(LEDS::LED_COMMS);
   flockLED.stopGrn(LEDS::LED_COMMS);
-}
+} // survey
 
+/*************************************************
+* What kind of RF signal?
+*************************************************/
 const char* discoveryToText(FLOCK_DISCOVERY_METHOD meth)
 {
   switch (meth)
@@ -637,8 +703,12 @@ const char* discoveryToText(FLOCK_DISCOVERY_METHOD meth)
   return ("");
 }
 
-const char* mgmtSubtypeToText(uint8_t stype)
+/***************************************************
+* WiFi Management packet subtype to human text
+****************************************************/
+const char* WiFiMgmtSubtypeToText(uint8_t stype)
 {
+  static char other[24];
   switch (stype)
   {
     case MGMT_FRAME_SUBTYPE_ASSOCIATION_REQUEST:      return ("associaton request");
@@ -657,7 +727,51 @@ const char* mgmtSubtypeToText(uint8_t stype)
     case MGMT_FRAME_SUBTYPE_ACTION_NO_ACK:            return ("action no-ack");
   }
 
-  return ("");
+  snprintf(other, 23, "Other: 0x%02x", stype);
+  return (other);
+}
+
+/***************************************************
+* WiFi Data packet subtype to human text
+****************************************************/
+const char* WiFiDataSubtypeToText(uint8_t stype)
+{
+  static char other[24];
+  switch (stype)
+  {
+    case DATA_FRAME_SUBTYPE_DATA:                             return ("Data");
+    case DATA_FRAME_SUBTYPE_DATA_CF_ACK:                      return ("Data CF-ACK");
+    case DATA_FRAME_SUBTYPE_DATA_CF_POLL:                     return ("Data CF-Poll");
+    case DATA_FRAME_SUBTYPE_DATA_CF_ACK_CF_POLL:              return ("Data CF-ACK + CF-Poll");
+    case DATA_FRAME_SUBTYPE_DATA_NO_DATA_NULL:                return ("ND (null no data)");
+    case DATA_FRAME_SUBTYPE_DATA_NO_DATA_CF_ACK:              return ("ND CF-ACK");
+    case DATA_FRAME_SUBTYPE_DATA_NO_DATA_POLL:                return ("ND CF-Poll");
+    case DATA_FRAME_SUBTYPE_DATA_NO_DATA_CF_ACK_CF_POLL:      return ("ND CF-ACK + CF-Poll");
+    case DATA_FRAME_SUBTYPE_DATA_QOS_DATA:                    return ("QoS Data");
+    case DATA_FRAME_SUBTYPE_DATA_QOS_CF_ACK:                  return ("QoS CF-ACK");
+    case DATA_FRAME_SUBTYPE_DATA_QOS_CF_POLL:                 return ("QoS CF-Poll");
+    case DATA_FRAME_SUBTYPE_DATA_QOS_CF_ACK_CF_POLL:          return ("QoS CF-ACK + CF-Poll");
+    case DATA_FRAME_SUBTYPE_DATA_QOS_NO_DATA:                 return ("ND QoS");
+    case DATA_FRAME_SUBTYPE_DATA_RESERVED_1:                  return ("Reserved");
+    case DATA_FRAME_SUBTYPE_DATA_NO_DATA_QOS_POLL:            return ("ND QoS CF-Poll");
+    case DATA_FRAME_SUBTYPE_DATA_NO_DATA_QOS_CF_ACK_CF_POLL:  return ("ND QoS CF-ACK + CF-Poll");
+  }
+
+  snprintf(other, 23, "Other: 0x%02x", stype);
+  return (other);
+}
+
+/**************************************************
+* WiFi type to text ("Management" or "Data")
+**************************************************/
+const char* wifiPktTypeToText(enum wifi_pkt_t t)
+{
+  switch (t)
+  {
+    case wifi_management: return ("Management");
+    case wifi_data: return ("Data");
+  }
+  return ("unknown");
 }
 
 const char* btleAdvertisedTypeToText(uint8_t type)
@@ -665,6 +779,10 @@ const char* btleAdvertisedTypeToText(uint8_t type)
   return ("test");
 }
 
+/************************************************
+* Make a human-readable hex string from a MAC
+* address (00:11:22:aa:bb:cc)
+************************************************/
 const char* macToText(const uint8_t* mac)
 {
   static char ret[20];
@@ -678,6 +796,9 @@ const char* macToText(const uint8_t* mac)
   return (ret);
 }
 
+/**************************************************
+* Reverse byte order in a fixed size array of bytes
+**************************************************/
 void reverseBytes(uint8_t* data, size_t len)
 {
   if (!data || !len)
