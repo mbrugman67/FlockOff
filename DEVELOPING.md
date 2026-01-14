@@ -84,6 +84,8 @@ If a `main` build isn't working, try the following:
 | Device bootloops, CLI on serial terminal briefly shows `failed to init` | In the Arduino IDE menu, select `Tools` and make sure `PSRAM` is set to "OPI PSRAM", and `Partition Scheme` is "Custom".  If not, set correctly and re-upload to device |  
 | Device appears to be operating, Arduino can load firmware, serial terminal connects, but no CLI response | In the Arduino IDE menu, select `Tools` and make sure `USB CDC on Boot` is set to "Enabled".  If not, set to "Enabled" and re-upload to device |  
 
+*NOTE:  IF YOU UPDATE THE ARDUINO IDE (AND SOMETIMES JUST RANDOMLY), THE IDE WILL RESET ALL OF THE BOARD SETTINGS!*  So, if things suddenly stop working, go to the `Tools` menu and verify the board settings (CDC on Boot, PSRAM, Partitioning Scheme, Flash size, etc.).
+
 If none of those work, open an issue in this repo.
 
  ## Debugging

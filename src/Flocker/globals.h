@@ -12,6 +12,13 @@
 
 
 /**********************************
+* Versions
+**********************************/
+#define FLOCKER_VERSION  "0.9a"
+#define SURVEY_JSON_VERSION  2
+
+
+/**********************************
 * gobal classes/constants/variables
 **********************************/
 extern NMEAGPS gps;
