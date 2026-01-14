@@ -207,31 +207,38 @@ sqlite> select * from surveys;
 │ 1         │ 'Example │ 2025-12-15 15:56:52 │ 42.0001   │ -87.0001  │ 8        │
 └───────────┴──────────┴─────────────────────┴───────────┴───────────┴──────────┘
 ```  
- The `surveyInx` field is a foreign key into the `wifi` and `btle` tables.  This allows multiple surveys to be loaded into a single database file
+ The `surveyInx` field is a foreign key into the `wifi_data`, `wifi_management` and `btle` tables.  This allows multiple surveys to be loaded into a single database file
 
 `notes` is the value from the `-j NOTES` parameter of the `survey` command.  `dateTime`, `longitude`, `lattitude`, and `satCount` are populated by the GPS module.
 
-The `wifi` table contains discovered broadcasters.  To list all of that data for this survey:
-```  
-sqlite> select w.type, w.ssid, w.bssid, w.rssi, w.channel from wifi as w join surveys s on w.surveyInx = s.surveyInx where w.type not like 'probe request' order by w.bssid;
-┌────────────────┬──────────┬───────────────────┬──────┬─────────┐
-│      type      │   ssid   │       bssid       │ rssi │ channel │
-├────────────────┼──────────┼───────────────────┼──────┼─────────┤
-│ beacon         │ virus    │ a0:36:bc:db:ca:a0 │ -52  │ 12      │
-│ beacon         │ virus    │ a0:36:bc:db:ca:a0 │ -51  │ 11      │
-│ beacon         │ flu      │ b2:28:aa:1c:0a:29 │ -51  │ 2       │
-│ beacon         │ flu      │ b2:28:aa:1c:0a:29 │ -53  │ 1       │
-│ probe response │ flu      │ b2:28:aa:1c:0a:29 │ -53  │ 2       │
-│ beacon         │ flu_IoT  │ b2:28:aa:1c:0a:2a │ -52  │ 1       │
-│ beacon         │ flu_IoT  │ b2:28:aa:1c:0a:2a │ -53  │ 2       │
-│ probe response │ flu_IoT  │ b2:28:aa:1c:0a:2a │ -54  │ 2       │
-│ beacon         │ <HIDDEN> │ cc:28:aa:1c:0a:28 │ -53  │ 2       │
-│ beacon         │ <HIDDEN> │ cc:28:aa:1c:0a:28 │ -51  │ 1       │
-└────────────────┴──────────┴───────────────────┴──────┴─────────┘
-```  
-`type` is the type of 802.11 wifi management packet was captured (beacon, probe request, probe response, etc.), `ssid` is the broadcast ssid, `bssid` is the MAC of the broadcaster, `rssi` is signal strength, and `channel` is the wifi channel.
+`wifi_data` contains all captured WiFi Data packets; `wifi_management` contains all captured WiFi Management packets (think access point beacons, probe responses, etc.).  They can be joined to find all devices and the access points to which they are connected:   
+```
+select distinct sta.subtype "station data subtype",
+		ap.ssid "AP SSID", 
+		ap.bssid "AP BSSID", 
+		sta.sourceAddr "station MAC", 
+		sta.channel "CH",
+		mv.vendorName "station vendor" 
+from wifi_data sta
+join wifi_management ap on ap.bssid = sta.destAddr and ap.channel = sta.channel and ap.surveyInx = sta.surveyInx
+left join mac_vendor mv on mv.prefix like substr(sta.sourceAddr, 1, 8) 
+where sta.surveyInx = 2
+order by ap.bssid;
 
-In this case, there were 3 unique MAC addresses seen, all of relatively the same signal strength.
+┌──────────────────────┬────────────────────┬───────────────────┬───────────────────┬────┬────────────────────────────────────────┐
+│ station data subtype │      AP SSID       │     AP BSSID      │    station MAC    │ CH │             station vendor             │
+├──────────────────────┼────────────────────┼───────────────────┼───────────────────┼────┼────────────────────────────────────────┤
+│ ND (null no data)    │ virus              │ a0:36:bc:db:ca:a0 │ cc:db:a7:93:ec:2c │ 6  │ Espressif Inc.                         │
+│ QoS Data             │ virus              │ a0:36:bc:db:ca:a0 │ cc:db:a7:93:ec:2c │ 6  │ Espressif Inc.                         │
+│ ND (null no data)    │ SpectrumSetup-ECFD │ a0:8a:06:6f:ec:fa │ bc:35:1e:77:8a:9f │ 6  │ Tuya Smart Inc.                        │
+│ ND (null no data)    │ SpectrumSetup-ECFD │ a0:8a:06:6f:ec:fa │ 30:fc:eb:84:38:ce │ 7  │ LG Electronics (Mobile Communications) │
+│ ND (null no data)    │ SpectrumSetup-ECFD │ a0:8a:06:6f:ec:fa │ 30:fc:eb:84:38:ce │ 6  │ LG Electronics (Mobile Communications) │
+│ QoS Data             │ flu                │ b2:28:aa:1c:0a:29 │ e0:75:26:a2:98:cc │ 1  │ China Dragon Technology Limited        │
+│ ND QoS               │ flu                │ b2:28:aa:1c:0a:29 │ 14:6b:9c:e3:7f:3b │ 2  │ SHENZHEN BILIAN ELECTRONIC CO.，LTD    │
+│ QoS Data             │ flu                │ b2:28:aa:1c:0a:29 │ 14:6b:9c:e3:7f:3b │ 1  │ SHENZHEN BILIAN ELECTRONIC CO.，LTD    │
+│ QoS Data             │ flu                │ b2:28:aa:1c:0a:29 │ 18:b4:30:a0:24:fa │ 1  │ Nest Labs Inc.                         │
+└──────────────────────┴────────────────────┴───────────────────┴───────────────────┴────┴────────────────────────────────────────┘
+```
 
 The `btle` table contains bluetooth broadcasters:
 ```  

@@ -71,7 +71,7 @@ You'll need a serial terminal program.  Make sure you use something that emulate
 Connect the USB cable, start up your terminal of choice.  Serial parameters are 115200 baud, 8N1.  Hit the `<RETURN>` key and you should get the prompt.  To test, try the `status` command:  
 ![image](./img/terminal.png)
 
-Use the `help` command to get a list of commands.  Each command has specific help that can be seen with the '-h` parameter, for example:
+Use the `help` command to get a list of commands.  Each command has specific help that can be seen with the '-h` parameter, for example:  
 ![image](./img/terminal2.png)
 
 ## Troubleshooting

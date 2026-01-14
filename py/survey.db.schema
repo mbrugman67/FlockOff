@@ -1,16 +1,29 @@
 CREATE TABLE surveys (
                         surveyInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        version INTEGER NOT NULL,
                         notes TEXT NOT NULL,
                         dateTime TEXT NOT NULL,
                         longitude REAL NOT NULL,
                         lattitude REAL NOT NULL,
                         satCount INTEGER NOT NULL
                     );
-CREATE TABLE sqlite_sequence(name,seq);
-CREATE TABLE wifi (
+CREATE TABLE wifi_data (
                         wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         surveyInx INTEGER NOT NULL,
-                        type TEXT NOT NULL,
+                        subtype TEXT NOT NULL,
+                        sourceAddr TEXT NOT NULL,
+                        destAddr TEXT NOT NULL,
+                        rssi INTEGER NOT NULL,
+                        channel INTEGER NOT NULL,
+                        FOREIGN KEY (surveyInx)
+                            REFERENCES surveys (surveyInx)
+                                ON DELETE CASCADE
+                                ON UPDATE NO ACTION
+                    );
+CREATE TABLE wifi_management (
+                        wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        surveyInx INTEGER NOT NULL,
+                        subtype TEXT NOT NULL,
                         ssid TEXT NOT NULL,
                         bssid TEXT NOT NULL,
                         rssi INTEGER NOT NULL,

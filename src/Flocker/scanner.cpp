@@ -592,11 +592,11 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
     {
       dev["Subtype"] = WiFiDataSubtypeToText(citWifiDevices->second.subtype);
     }
+    dev["SSID"] = citWifiDevices->second.ssid;
     dev["SourceAddr"] = macToText(citWifiDevices->second.mac);
     dev["DestAddr"] = macToText(citWifiDevices->second.assoc);
     dev["Channel"] = citWifiDevices->second.channel;
-    dev["SSID"] = citWifiDevices->second.ssid;
-    dev["RSSSI"] = citWifiDevices->second.rssi;
+    dev["RSSI"] = citWifiDevices->second.rssi;
 
     devs.add(dev);
   }
