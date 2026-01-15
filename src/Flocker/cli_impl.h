@@ -19,6 +19,11 @@ void writeChar(EmbeddedCli *embeddedCli, char c);
 /********************************************************
 * Command line handler callback functions:
 ********************************************************/
+// display build version and information
+void onVersion(EmbeddedCli* cli, char* args, void* context);
+const char* helpVersion = "version\r\n"
+                          "Display version and build information\r\n\r\n";
+
 // perform a manual device wireless survey
 void onSurvey(EmbeddedCli* cli, char* args, void* context);
 const char* helpSurvey = "survey [OPTION]\r\n"
@@ -26,9 +31,9 @@ const char* helpSurvey = "survey [OPTION]\r\n"
                          "  -i <INTERVAL>   interval in milliseconds to scan each WiFi channel\r\n"
                          "  -w              scan WiFi for broadcasters\r\n"
                          "  -b              scan for Bluetooth broadcasters\r\n"
-                         "  -f <FILENAME>   save results to FILENAME\r\n"
-                         "  -j <NOTES>      save results as JSON, with NOTES added for reference\r\n\r\n"
-                         "If neither the -b or -w parameter is set, a survey of both will be performed.  If data is saved to file, but the -j parameter is not supplied, the data will be in CSV format.\r\n\r\n";
+                         "  -f <FILENAME>   save results to FILENAME in JSON format\r\n"
+                         "  -n <NOTES>      add NOTES added for reference\r\n\r\n"
+                         "If neither the -b or -w parameter is set, a survey of both will be performed.  If the -f parameter is not passed, JSON results will be displayed in the terminal.\r\n\r\n";
 
 // clear terminal
 void onClear(EmbeddedCli* cli, char* args, void* context);
@@ -94,6 +99,7 @@ const char* helpConfig = "config [OPTION]\r\n"
   };
 *******************************************************/
 const struct CliCommandBinding bindings[] = {
+  {"version", "Display firmware version", helpVersion, false, nullptr, onVersion},
   {"survey", "Perform WiFi survey", helpSurvey, true, nullptr, onSurvey},
   {"clear", "Clear the console", helpClear, false, nullptr, onClear},
   {"reset", "Reboot the device", helpReset, true, nullptr, onReset},
@@ -155,6 +161,21 @@ void onConfig(EmbeddedCli* cli, char* args, void* context)
 }
 
 /******************************************************
+* onVersion()
+*******************************************************
+* Command to display version and build date/time
+*
+* Parameters:
+*   None
+*
+******************************************************/
+void onVersion(EmbeddedCli* cli, char* args, void* context)
+{
+  Serial.printf(CLI_CYA "Flocker version " CLI_BOLD_GRN "%d.%d.%d" CLI_RESET CLI_CYA ", built on %s at %s\r\n",
+    FLOCKER_VERSION_MAJOR, FLOCKER_VERSION_MINOR, FLOCKER_VERSION_SUBMINOR, __DATE__, __TIME__);
+}
+
+/******************************************************
 * onSurvey()
 *******************************************************
 * Command to perform a single scan for wireless devices
@@ -202,7 +223,7 @@ void onSurvey(EmbeddedCli* cli, char* args, void* context)
           {
             doWiFi = true;
           }
-          else if (argv[1] == 'j')
+          else if (argv[1] == 'n')
           {
             doJson = true;
             ++ii;

@@ -552,7 +552,7 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
     flockLog.addLogLine("SCAN", "survey() starting BTLE scan\r\n");
     Serial.printf(CLI_CYA "Starting BLE\r\n");
     this->startBLE();
-    delay(interval * 5);
+    delay(250);
     this->stopBLE();
     Serial.printf(CLI_CYA "BLE Done\r\n");
     flockLog.addLogLine("SCAN", "survey() BTLE scan done\r\n");
@@ -561,6 +561,8 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
   JsonDocument sur;
   if (notes && strlen(notes))     sur["SurveyNotes"] = notes;
   else                            sur["SurveyNotes"] = "Generic survey";
+
+  sur["Device"] = flockCfg.getDeviceName();
 
   JsonArray location = sur["LocationLongLat"].to<JsonArray>();
   location.add(gps.getLongitude());
@@ -662,8 +664,7 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
     serializeJsonPretty(sur, Serial);
     Serial.printf("\r\n");
   }
-
-  if (fname && strlen(fname))
+  else
   {
     Serial.printf(CLI_CYA "Saving survey results to " CLI_GRN "%s" CLI_CYA ", format " CLI_YEL "%s\r\n" CLI_RESET,
       fname, doJson ? "JSON" : "text");

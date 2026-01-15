@@ -5,17 +5,17 @@ select *
 from surveys s order by s.dateTime;
 
 
--- wifi stations attached to access points
+-- stations attached to access points
 select distinct sta.subtype "station data subtype",
 		ap.ssid "AP SSID",
 		ap.bssid "AP BSSID",
 		sta.sourceAddr "station MAC",
 		sta.channel "CH",
+		sta.surveyInx "survey",
 		mv.vendorName "station vendor"
 from wifi_data sta
 join wifi_management ap on ap.bssid = sta.destAddr and ap.channel = sta.channel and ap.surveyInx = sta.surveyInx
 left join mac_vendor mv on mv.prefix like substr(sta.sourceAddr, 1, 8)
-where sta.surveyInx = 2
 order by ap.bssid;
 
 -- all distinct bluetooth beacons with vendor, uuid, and survey data

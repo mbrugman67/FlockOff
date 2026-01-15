@@ -1,12 +1,14 @@
 CREATE TABLE surveys (
                         surveyInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         version INTEGER NOT NULL,
+                        device TEXT NOT NULL,
                         notes TEXT NOT NULL,
                         dateTime TEXT NOT NULL,
                         longitude REAL NOT NULL,
                         lattitude REAL NOT NULL,
                         satCount INTEGER NOT NULL
                     );
+CREATE TABLE sqlite_sequence(name,seq);
 CREATE TABLE wifi_data (
                         wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         surveyInx INTEGER NOT NULL,

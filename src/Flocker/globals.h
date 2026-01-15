@@ -14,7 +14,10 @@
 /**********************************
 * Versions
 **********************************/
-#define FLOCKER_VERSION  "0.9a"
+#define FLOCKER_VERSION_MAJOR 0
+#define FLOCKER_VERSION_MINOR 9
+#define FLOCKER_VERSION_SUBMINOR 2
+
 #define SURVEY_JSON_VERSION  2
 
 

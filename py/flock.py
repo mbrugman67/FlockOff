@@ -40,6 +40,7 @@ class surveyJson:
             return None
 
     def getHeader(self):
+        device = self.getItem("Device")
         notes = self.getItem("SurveyNotes")
         dateTime = self.getItem("DateTime")
         longitude = self.getItem("LocationLongLat")[1]
@@ -49,6 +50,7 @@ class surveyJson:
 
         if (
             notes == None
+            or device == None
             or dateTime == None
             or longitude == None
             or lattitude == None
@@ -57,7 +59,7 @@ class surveyJson:
             return None
 
         else:
-            return (notes, version, dateTime, longitude, lattitude, satCount)
+            return (notes, device, version, dateTime, longitude, lattitude, satCount)
 
     def getNextWifiDevice(self):
         if self._wifiInx >= self._wifiCount:
@@ -150,6 +152,7 @@ class sq3db:
                     CREATE TABLE IF NOT EXISTS surveys (
                         surveyInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         version INTEGER NOT NULL,
+                        device TEXT NOT NULL,
                         notes TEXT NOT NULL,
                         dateTime TEXT NOT NULL,
                         longitude REAL NOT NULL,
@@ -374,8 +377,8 @@ class sq3db:
         self._dbConnection.commit()
 
     def insertSurveyHeader(self, header: tuple):
-        qstring = 'INSERT INTO surveys (notes, version, dateTime, longitude, lattitude, satCount) values ("{}", {},"{}",{},{},{});'.format(
-            header[0], header[1], header[2], header[3], header[4], header[5]
+        qstring = 'INSERT INTO surveys (notes, device, version, dateTime, longitude, lattitude, satCount) values ("{}", "{}", {},"{}",{},{},{});'.format(
+            header[0], header[1], header[2], header[3], header[4], header[5], header[6]
         )
 
         self._cursor.execute(qstring)
