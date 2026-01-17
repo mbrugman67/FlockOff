@@ -171,8 +171,8 @@ void onConfig(EmbeddedCli* cli, char* args, void* context)
 ******************************************************/
 void onVersion(EmbeddedCli* cli, char* args, void* context)
 {
-  Serial.printf(CLI_CYA "Flocker version " CLI_BOLD_GRN "%d.%d.%d" CLI_RESET CLI_CYA ", built on %s at %s\r\n",
-    FLOCKER_VERSION_MAJOR, FLOCKER_VERSION_MINOR, FLOCKER_VERSION_SUBMINOR, __DATE__, __TIME__);
+  Serial.printf(CLI_CYA "Flocker version " CLI_BOLD_GRN "%d.%d.%d" CLI_RESET CLI_CYA ", built on " CLI_BOLD_GRN "%s at %s\r\n" CLI_RESET,
+    FLOCKER_VERSION_MAJOR, FLOCKER_VERSION_MINOR, FLOCKER_VERSION_SUBMINOR, FLOCKER_BUILD_DATE, FLOCKER_BUILD_TIME);
 }
 
 /******************************************************
@@ -363,21 +363,25 @@ void onLs(EmbeddedCli *cli, char *args, void *context)
 
   flockLog.addLogLine("CLI", "onLs(%s)\r\n", dump ? "dump" : "");
 
+  if (!dump)
+  {
+    Serial.printf(CLI_GRN);
+  }
+  
   for (filesCit = files.begin(); filesCit != files.end(); ++filesCit)
   {
-    if (!dump)
-    {
-      Serial.printf(CLI_GRN "\t%6d  %s\r\n" CLI_RESET, flockfs.getFileSize(filesCit->c_str()), filesCit->c_str());
-    }
-    else
-    {
-      Serial.printf("%s\r\n", filesCit->c_str());
-    }
+    // really inefficient, but how many files will there be, eh?
+    Serial.printf(" %8d  %s  %s\r\n", 
+          flockfs.getFileSize(filesCit->c_str()), flockfs.lastFileWrite(filesCit->c_str()), filesCit->c_str());
   }
 
   if (dump)
   {
     delay(2000);
+  }
+  else
+  {
+    Serial.printf(CLI_RESET);
   }
 }
 

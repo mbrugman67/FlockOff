@@ -17,7 +17,7 @@
 
 #include "globals.h"
 
-#define BIG_BUF_SIZE (32 * 1024)
+#define BIG_BUF_SIZE (2 * 1024 * 1024)
 
 #define DATA_FRAME_SUBTYPE_DATA 0x00
 #define DATA_FRAME_SUBTYPE_DATA_CF_ACK 0x01
@@ -672,17 +672,23 @@ void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fnam
     char* output = (char*)ps_malloc(BIG_BUF_SIZE + 1);
     memset(output, 0, BIG_BUF_SIZE + 1);
 
-    //if (doJson)
+    if (output)
     {
- 
       serializeJson(sur, output, BIG_BUF_SIZE);
       
       size_t written = flockfs.writeFile(fname, (uint8_t*)output, strlen(output));
       Serial.printf(CLI_CYA "Wrote " CLI_GRN "%d" CLI_CYA " bytes to file\r\n" CLI_RESET, written);
       flockLog.addLogLine("SCAN", "survey() wrote %d bytes to %s\r\n", written, fname);
+
+      free (output);
+    }
+    else
+    {
+      flockLog.addLogLine("SCAN", "Unable to allocate %d bytes for file write buffer\r\n", BIG_BUF_SIZE + 1);
+      Serial.printf(CLI_BOLD_RED "Unable to allocate for file write buffer!\r\n" CLI_RESET);
     }
 
-    free (output);
+
   }
 
   flockLED.stopBlu(LEDS::LED_COMMS);

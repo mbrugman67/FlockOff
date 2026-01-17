@@ -74,6 +74,32 @@ void MBFS::getInfo(size_t* cap, size_t* used)
     *used = LittleFS.usedBytes();
 }
 
+const char* MBFS::lastFileWrite(const char* path)
+{
+    static char ret[64];
+
+    char fpath[65] = {0};
+    snprintf(fpath, 64, "/%s", path);
+
+    // try to open the file for reading, do not create if it doesnt exist
+    File file = LittleFS.open(fpath, "r", false);
+
+    if (!file)
+    {
+        return ("--/--/----  --:--:--");
+    }
+
+    time_t t = file.getLastWrite();
+    tm *tmp;
+    tmp = localtime(&t);
+
+    strftime(ret, 63, "%D  %T", tmp);
+
+    file.close();
+
+    return (ret);
+}
+
 ssize_t MBFS::readFile(const char* path, uint8_t* buff, size_t len)
 {
     char fpath[65] = {0};

@@ -27,6 +27,8 @@ public:
   bool fileExists(const char* path);
   bool rollFiles(const char* basePath, const char* ext, uint8_t count);
 
+  const char* lastFileWrite(const char* path);
+
 private:
 };
 
