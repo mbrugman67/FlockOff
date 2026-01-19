@@ -3,13 +3,12 @@
 
 #include "globals.h"
 
-#define LOG_FILE_BASE "system"
 #define LOG_FILE_EXT "log"
 
 #define LOG_BUFF_SIZE (8 * 1024)
 #define LOG_LINE_SIZE 512
 
-bool FLOGGER::begin(uint32_t interval)
+bool FLOGGER::begin(uint32_t interval, const char* baseName, uint8_t fileCount)
 {
   buf = (char*)ps_malloc(LOG_BUFF_SIZE);
   if (!buf)
@@ -27,11 +26,11 @@ bool FLOGGER::begin(uint32_t interval)
     return (false);
   }
 
-  snprintf(this->fname, 63, "%s.%s", LOG_FILE_BASE, LOG_FILE_EXT);
+  snprintf(this->fname, 63, "%s.%s", baseName, LOG_FILE_EXT);
 
   if (flockCfg.getDebugEnabledState())
   {
-    flockfs.rollFiles(LOG_FILE_BASE, LOG_FILE_EXT, flockCfg.getDebugFileCount());
+    flockfs.rollFiles(baseName, LOG_FILE_EXT, fileCount);
     this->addLogLine("LOGGER", "Started logger\r\n");
   }
 
@@ -39,6 +38,16 @@ bool FLOGGER::begin(uint32_t interval)
   updateInterval = interval;
 
   return (true);
+}
+
+void FLOGGER::close()
+{
+    if (buf)
+    {
+        this->addLogLine("LOG", "Closing log!\r\n");
+        this->flushNow();
+        free (buf);
+    }
 }
 
 void FLOGGER::addLogLine(const char* src, const char* fmt, ...)

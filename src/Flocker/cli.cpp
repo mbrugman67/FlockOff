@@ -24,6 +24,7 @@
 static EmbeddedCli *cli = NULL;
 static CLI_UINT* cliBuffer = NULL;  // will be allocated in PSRAM by embeddedCliNew()
 static bool cliIsHeld = false;
+static bool firstCharSeen = false;
 
 bool setupCLI()
 {
@@ -80,7 +81,8 @@ void updateCLI()
   {
     while (Serial.available())
     {
-      embeddedCliReceiveChar(cli, Serial.read());
+        firstCharSeen = true;
+        embeddedCliReceiveChar(cli, Serial.read());
     }
 
     embeddedCliProcess(cli);
@@ -90,4 +92,9 @@ void updateCLI()
 void holdCLI(bool hold)
 {
   cliIsHeld = hold;
+}
+
+bool cliActive()
+{
+    return (firstCharSeen);
 }

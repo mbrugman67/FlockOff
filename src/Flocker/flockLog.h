@@ -10,10 +10,11 @@ public:
   FLOGGER() {}
   ~FLOGGER() {}
 
-  bool begin(uint32_t interval);
+  bool begin(uint32_t interval, const char* baseName, uint8_t fileCount);
   void addLogLine(const char* src, const char* fmt, ...);
   void update();
   void flushNow();
+  void close();
 
 private:
   char* buf;

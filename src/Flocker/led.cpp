@@ -68,7 +68,7 @@ void LEDS::update()
   {
     for (uint8_t ii = 0; ii < LEDS::CLR_MAX; ++ii)
     {
-      led* thisLED = &leds[id][ii];  // get a pointer for simplicity 
+      led* thisLED = &leds[id][ii];  // get a pointer for simplicity
       uint32_t elapsed = millis() - thisLED->offset;
 
       switch (thisLED->mode)
@@ -142,13 +142,13 @@ void LEDS::update()
   crgb_t val = 0;
   val =  (((uint32_t)leds[LED_GPS][CLR_RED].level << 16) & 0x00ff0000);
   val |= (((uint32_t)leds[LED_GPS][CLR_GRN].level <<  8) & 0x0000ff00);
-  val |= (((uint32_t)leds[LED_GPS][CLR_BLU].level      ) & 0x000000ff); 
+  val |= (((uint32_t)leds[LED_GPS][CLR_BLU].level      ) & 0x000000ff);
   aLEDS.setPixel(LED_GPS, val);
 
   val = 0;
   val =  (((uint32_t)leds[LED_COMMS][CLR_RED].level << 16) & 0x00ff0000);
   val |= (((uint32_t)leds[LED_COMMS][CLR_GRN].level <<  8) & 0x0000ff00);
-  val |= (((uint32_t)leds[LED_COMMS][CLR_BLU].level      ) & 0x000000ff); 
+  val |= (((uint32_t)leds[LED_COMMS][CLR_BLU].level      ) & 0x000000ff);
   aLEDS.setPixel(LED_COMMS, val);
 
   aLEDS.show();
@@ -157,7 +157,7 @@ void LEDS::update()
 /*******************************************
 * cycleXXX()
 ********************************************
-* start the specified LED flashing with a 
+* start the specified LED flashing with a
 * given cycle time and on time (for variable
 * duty cycle
 *******************************************/
@@ -166,11 +166,14 @@ void LEDS::cycleGrn(LED_id_t id, uint32_t base, uint32_t on)  { this->cycle(id, 
 void LEDS::cycleBlu(LED_id_t id, uint32_t base, uint32_t on)  { this->cycle(id, LEDS::CLR_BLU, base, on); }
 void LEDS::cycle(LED_id_t id, LEDS::LED_color_t c, uint32_t base, uint32_t on)
 {
-  leds[id][c].cycleTime = base;
-  leds[id][c].cycleOnTime = on;
-  leds[id][c].offset = millis();
-  leds[id][c].mode = LEDS::LED_MODE_CYCLE_ON;
-  leds[id][c].level = maxBright;
+    if (leds[id].mode != LEDS::LED_MODE_CYCLE_ON && leds[id].mode != LEDS::LED_MODE_CYCLE_OFF)
+    {
+        leds[id][c].cycleTime = base;
+        leds[id][c].cycleOnTime = on;
+        leds[id][c].offset = millis();
+        leds[id][c].mode = LEDS::LED_MODE_CYCLE_ON;
+        leds[id][c].level = maxBright;
+    }
 }
 
 /*******************************************
@@ -213,8 +216,11 @@ void LEDS::alertGrn(LED_id_t id)  { this->alert(id, LEDS::CLR_GRN); }
 void LEDS::alertBlu(LED_id_t id)  { this->alert(id, LEDS::CLR_BLU); }
 void LEDS::alert(LED_id_t id, LEDS::LED_color_t c)
 {
-  leds[id][c].mode = LEDS::LED_MODE_ALERT;
-  leds[id][c].level = maxBright;
+    if (leds[id][c].mode != LEDS::LED_MODE_ALERT)
+    {
+        leds[id][c].mode = LEDS::LED_MODE_ALERT;
+        leds[id][c].level = maxBright;
+    }
 }
 
 

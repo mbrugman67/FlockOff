@@ -31,7 +31,10 @@ public:
   const char* getDeviceName();
   uint8_t getLEDBrightness();
   bool getDebugEnabledState();
+  bool getScanLogEnabledState();
   uint8_t getDebugFileCount();
+  uint8_t getScanLogFileCount();
+  uint16_t getScanHoldTime();
   int8_t getMinRSSI();
 
   bool newCfgAvailable(uint8_t listenerID);
@@ -42,7 +45,10 @@ private:
   void selectTimeZone();
   void setDeviceName();
   void setDebugEnabledState();
+  void setScanLogEnabledState();
   void setDebugFileRollCount();
+  void setScanLogRollCount();
+  void setScanHoldTime();
   bool writeConfig();
   void setMinRSSI();
   void setNewConfigFlags(bool val);

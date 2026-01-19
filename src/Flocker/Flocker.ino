@@ -47,7 +47,7 @@ void setup() {
   initOk &= gps.begin(GPS_PORT_BAUD, GPS_PORT_RX, GPS_PORT_TX);
   initOk &= flockfs.begin();
   initOk &= flockCfg.begin();
-  initOk &= flockLog.begin(200);
+  initOk &= flockLog.begin(200, "system", flockCfg.getDebugFileCount());
   initOk &= flockScan.begin();
   initOk &= flockLED.begin(ADDR_LED_PIN, 140);
   initOk &= setupCLI();

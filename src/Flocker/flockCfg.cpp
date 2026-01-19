@@ -22,6 +22,9 @@
 #define DEBUGENABLED "debugEnabled"
 #define DEBUGROLLCOUNT "debugLogRollCount"
 #define MINRSSI "minRSSI"
+#define SCANLOGGING "scanlogging"
+#define SCANLOGROLLCOUNT "scanLogRollCount"
+#define SCANHOLDTIME "scanHoldTime"
 
 // name of configuration file
 #define CONFIG_FILENAME "config.json"
@@ -144,6 +147,9 @@ bool CONFIG::buildDefualtConfig()
   cfg[DEBUGENABLED] = false;                   // debug logging enabled?
   cfg[DEBUGROLLCOUNT] = 3;                     // how many previous debug files to save
   cfg[MINRSSI] = -85;                          // minimum signal strength for alert
+  cfg[SCANLOGGING] = false;                    // log results of continuous scanning
+  cfg[SCANLOGROLLCOUNT] = 3;                   // how many previous scan log files to save
+  cfg[SCANHOLDTIME] = 30;                      // minimum scan 'device found' alert time [seconds]
 
   this->setNewConfigFlags(true);
   return (this->writeConfig());
@@ -252,8 +258,12 @@ void CONFIG::setConfigValues()
     Serial.printf(CLI_YEL "2) Set timezone (" CLI_BOLD_GRN "%s" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, this->getTimeZone());
     Serial.printf(CLI_YEL "3) Set max LED brightness (" CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, (int)this->getLEDBrightness());
     Serial.printf(CLI_YEL "4) Set debug logging (" CLI_BOLD_GRN "%s" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, this->getDebugEnabledState() ? "enabled" : "disabled");
-    Serial.printf(CLI_YEL "5) Set debug file rolling count (" CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, (int)this->getDebugFileCount());
-    Serial.printf(CLI_YEL "6) Set minimum RSSI (" CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, (int)this->getMinRSSI());
+    Serial.printf(CLI_YEL "5) Set scan logging (" CLI_BOLD_GRN "%s" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, this->getScanLogEnabledState() ? "enabled" : "disabled");
+    Serial.printf(CLI_YEL "6) Set debug file rolling count (" CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, (int)this->getDebugFileCount());
+    Serial.printf(CLI_YEL "7) Set scan file rolling count (" CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, (int)this->getScanLogFileCount());
+    Serial.printf(CLI_YEL "8) Set minimum RSSI (" CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, (int)this->getMinRSSI());
+    Serial.printf(CLI_YEL "9) Set minimum alert time (" CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL ")\r\n" CLI_RESET, this->getScanHoldTime());
+
 
     char choice = this->readChar((CLI_CYA "Select number of item to change or 'x' to exit with no changes: " CLI_RESET));
     Serial.printf("\r\n\r\n");
@@ -264,8 +274,11 @@ void CONFIG::setConfigValues()
       case '2':  this->selectTimeZone(); Serial.printf("\r\n"); break;
       case '3':  this->setLEDBrightness(); Serial.printf("\r\n"); break;
       case '4':  this->setDebugEnabledState(); Serial.printf("\r\n"); break;
-      case '5':  this->setDebugFileRollCount(); Serial.printf("\r\n"); break;
-      case '6':  this->setMinRSSI(); Serial.printf("\r\n"); break;
+      case '5':  this->setScanLogEnabledState(); Serial.printf("\r\n"); break;
+      case '6':  this->setDebugFileRollCount(); Serial.printf("\r\n"); break;
+      case '7':  this->setScanLogRollCount(); Serial.printf("\r\n"); break;
+      case '8':  this->setMinRSSI(); Serial.printf("\r\n"); break;
+      case '9':  this->setScanHoldTime(); Serial.printf("\r\n"); break;
       case 'x':  configDone = true; break;
       default: Serial.printf(CLI_BOLD_RED "Unknown entry '%c'\r\n" CLI_RESET, choice);
     }
@@ -439,6 +452,48 @@ void CONFIG::setDebugEnabledState()
     }
   }
 
+  flockLog.addLogLine("CFG", "Set debug logging to %s\r\n", cfg[DEBUGENABLED] ? "True" : "False");
+
+  this->setNewConfigFlags(true);
+  this->writeConfig();
+}
+
+/******************************************************
+* Get the scan log enabled state.  If true, the system
+* will be saving scan information to a log file in
+* internal filesystem
+******************************************************/
+bool CONFIG::getScanLogEnabledState()
+{
+  return (cfg[SCANLOGGING]);
+}
+
+/******************************************************
+* Set the scan log enabled state.  If true, the system
+* will be saving scan information to a log file in
+* internal filesystem
+******************************************************/
+void CONFIG::setScanLogEnabledState()
+{
+  bool done = false;
+
+  while (!done)
+  {
+    char enb = this->readChar((CLI_CYA "'Y' to enable scan logging, 'N' to disable scan logging: " CLI_RESET));
+    if (enb == 'Y' || enb == 'y')
+    {
+      cfg[SCANLOGGING] = true;
+      done = true;
+    }
+    else if (enb == 'N' || enb == 'n')
+    {
+      cfg[SCANLOGGING] = false;
+      done = true;
+    }
+  }
+
+  flockLog.addLogLine("CFG", "Set scan logging to %s\r\n", cfg[SCANLOGGING] ? "True" : "False");
+
   this->setNewConfigFlags(true);
   this->writeConfig();
 }
@@ -462,7 +517,6 @@ uint8_t CONFIG::getDebugFileCount()
 ******************************************************/
 void CONFIG::setDebugFileRollCount()
 {
-
   bool done = false;
 
   while (!done)
@@ -480,6 +534,75 @@ void CONFIG::setDebugFileRollCount()
   this->writeConfig();
 }
 
+/******************************************************
+* Get the scan log file count.  When enabled, the
+* system will open a new scan log file and "roll"
+* any existing files.  This config value controls how
+* many previous files to keep
+******************************************************/
+uint8_t CONFIG::getScanLogFileCount()
+{
+  return ((uint8_t)cfg[SCANLOGROLLCOUNT]);
+}
+
+/******************************************************
+* Set the scan log file count.  When enabled, the
+* system will open a new scan log file and "roll"
+* any existing files.  This config value controls how
+* many previous files to keep
+******************************************************/
+void CONFIG::setScanLogRollCount()
+{
+  bool done = false;
+
+  while (!done)
+  {
+    int count = this->readInt((CLI_CYA "Enter number of scan log files to keep (1 - 10): " CLI_RESET));
+    if (count > 0 && count < 11)
+    {
+      cfg[SCANLOGROLLCOUNT] = count;
+      flockLog.addLogLine("CFG", "setScanFileRollCount() set to %d\r\n", count);
+      done = true;
+    }
+  }
+
+  this->setNewConfigFlags(true);
+  this->writeConfig();
+}
+
+/******************************************************
+* Get the scan hold time.  When a device is found by
+* continuous scan, the LED indicator will flash for
+* at least this many seconds.
+******************************************************/
+uint16_t CONFIG::getScanHoldTime()
+{
+  return ((uint16_t)cfg[SCANHOLDTIME]);
+}
+
+/******************************************************
+* Set the scan hold time.  When a device is found by
+* continuous scan, the LED indicator will flash for
+* at least this many seconds.
+******************************************************/
+void CONFIG::setScanHoldTime()
+{
+  bool done = false;
+
+  while (!done)
+  {
+    int count = this->readInt((CLI_CYA "Enter minimum scan alert time [seconds] (1 - 60): " CLI_RESET));
+    if (count > 0 && count < 61)
+    {
+      cfg[SCANHOLDTIME] = count;
+      flockLog.addLogLine("CFG", "setScanHoldTime() set to %d\r\n", count);
+      done = true;
+    }
+  }
+
+  this->setNewConfigFlags(true);
+  this->writeConfig();
+}
 
 /******************************************************
 * Write the JSON config structure to file (minimized).

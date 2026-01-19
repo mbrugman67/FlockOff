@@ -17,5 +17,6 @@
 bool setupCLI();
 void updateCLI();
 void holdCLI(bool hold);
+bool cliActive();
 
 #endif  // CLI_H_

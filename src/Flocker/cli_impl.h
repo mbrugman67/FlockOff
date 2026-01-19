@@ -7,6 +7,7 @@
 #ifndef CLI_IMPL_H_
 #define CLI_IMPL_H_
 
+#include "globals.h"
 #define CLI_BUFFER_SIZE_PS 8192
 #define CLI_RX_BUFFER_SIZE_PS 1024
 #define CLI_CMD_BUFFER_SIZE_PS 1024
@@ -34,6 +35,14 @@ const char* helpSurvey = "survey [OPTION]\r\n"
                          "  -f <FILENAME>   save results to FILENAME in JSON format\r\n"
                          "  -n <NOTES>      add NOTES added for reference\r\n\r\n"
                          "If neither the -b or -w parameter is set, a survey of both will be performed.  If the -f parameter is not passed, JSON results will be displayed in the terminal.\r\n\r\n";
+
+// Start scanning for matching devices
+void onScan(EmbeddedCli* cli, char* args, void* context);
+const char* helpScan = "scan [OPTION]\r\n"
+                       "Start the continuous scan process, alerting via LEDs.\r\n\r\n"
+                       "  -l <FILENAME>   log results to FILENAME, overrides config settings\r\n\r\n"
+                       "Continuous scanning is the 'default' operating mode.  The device will continually monitor WiFi and BT signals; if a 'match' is found, the device will signal via flashing LEDSs.  Pressing any key in serial terminal will stop the scan.\r\n\r\n";
+
 
 // clear terminal
 void onClear(EmbeddedCli* cli, char* args, void* context);
@@ -101,6 +110,7 @@ const char* helpConfig = "config [OPTION]\r\n"
 const struct CliCommandBinding bindings[] = {
   {"version", "Display firmware version", helpVersion, false, nullptr, onVersion},
   {"survey", "Perform WiFi survey", helpSurvey, true, nullptr, onSurvey},
+  {"scan", "Start continuous scan", helpScan, true, nullptr, onScan},
   {"clear", "Clear the console", helpClear, false, nullptr, onClear},
   {"reset", "Reboot the device", helpReset, true, nullptr, onReset},
   {"ls", "List files", helpLs, true, nullptr, onLs},
@@ -190,7 +200,7 @@ void onVersion(EmbeddedCli* cli, char* args, void* context)
 *   -i <interval> - how much time (in ms) to spend on
 *                   each WiFi channel and on BLE
 *   -f <filename> - save results to specified filename
-*   -j <notes>    - save file as JSON (requires -f paramter)
+*   -j <notes>    - save file as JSON (requires -f parameter)
 *
 ******************************************************/
 void onSurvey(EmbeddedCli* cli, char* args, void* context)
@@ -317,6 +327,33 @@ void onSurvey(EmbeddedCli* cli, char* args, void* context)
 }
 
 /******************************************************
+* onScan()
+*******************************************************
+* Command to start continuous scanning for wireless devices
+* both WiFi and BLE.
+*
+* Parameters:
+*   -l <filename> - save results to specified filename,
+*                   overrides config settings
+*
+******************************************************/
+void onScan(EmbeddedCli* cli, char* args, void* context)
+{
+    char logFileName[120] = {'\0'};
+
+    if (embeddedCliGetTokenCount(args) == 2)
+    {
+        if (!strcmp(embeddedCliGetToken(args, 1), "-l"))
+        {
+            strncpy(logFileName, embeddedCliGetToken(args, 2), 119);
+        }
+    }
+
+    Serial.printf(CLI_BOLD_PUR "onScan(), filename '%s'\r\n" CLI_RESET, logFileName);
+}
+
+
+/******************************************************
 * onClear()
 *******************************************************
 * Command to clear the user's terminal (by sending
@@ -367,11 +404,11 @@ void onLs(EmbeddedCli *cli, char *args, void *context)
   {
     Serial.printf(CLI_GRN);
   }
-  
+
   for (filesCit = files.begin(); filesCit != files.end(); ++filesCit)
   {
     // really inefficient, but how many files will there be, eh?
-    Serial.printf(" %8d  %s  %s\r\n", 
+    Serial.printf(" %8d  %s  %s\r\n",
           flockfs.getFileSize(filesCit->c_str()), flockfs.lastFileWrite(filesCit->c_str()), filesCit->c_str());
   }
 
