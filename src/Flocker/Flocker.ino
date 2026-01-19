@@ -27,6 +27,8 @@ bool psRamInitOk;
 bool initOk;
 
 static uint8_t cfgListenerID = BAD_LISTENER_ID;
+static uint32_t bootTick;
+static bool allowAutoScan = true;
 
 // if you see this message on the CLI, you messed up an allocation!
 void heapCheck() {
@@ -63,6 +65,8 @@ void setup() {
     flockCfg.registerListener(cfgListenerID);
   }
 
+  bootTick = millis();
+
   flockLog.addLogLine("main", "Leaving setup()\r\n");
 }
 
@@ -78,6 +82,23 @@ void loop() {
     flockLED.update();
     updateCLI();
     flockLog.update();
+    flockScan.update();
+
+    // if no CLI action seen in the first 5 seconds,
+    // start a continuous scan process
+    if (allowAutoScan)
+    {
+      if (cliActive())
+      {
+        allowAutoScan = false;
+      }
+
+      if ((millis() - bootTick) > 5000)
+      {
+        flockScan.scan("");
+        allowAutoScan = false;
+      }
+    }
   }
 
   // user LED continually flashes - visual heartbeat

@@ -30,11 +30,9 @@ void onSurvey(EmbeddedCli* cli, char* args, void* context);
 const char* helpSurvey = "survey [OPTION]\r\n"
                          "Perform a WiFi and/or Bluetooth survey.  Displays all results, not just those that match scan criteria.\r\n\r\n"
                          "  -i <INTERVAL>   interval in milliseconds to scan each WiFi channel\r\n"
-                         "  -w              scan WiFi for broadcasters\r\n"
-                         "  -b              scan for Bluetooth broadcasters\r\n"
                          "  -f <FILENAME>   save results to FILENAME in JSON format\r\n"
                          "  -n <NOTES>      add NOTES added for reference\r\n\r\n"
-                         "If neither the -b or -w parameter is set, a survey of both will be performed.  If the -f parameter is not passed, JSON results will be displayed in the terminal.\r\n\r\n";
+                         "If the -f parameter is not passed, JSON results will be displayed in the terminal.\r\n\r\n";
 
 // Start scanning for matching devices
 void onScan(EmbeddedCli* cli, char* args, void* context);
@@ -195,8 +193,6 @@ void onVersion(EmbeddedCli* cli, char* args, void* context)
 *
 * Parameters:
 *   -h - show help
-*   -b - do Bluetooth LE scan
-*   -w - do WiFi scan
 *   -i <interval> - how much time (in ms) to spend on
 *                   each WiFi channel and on BLE
 *   -f <filename> - save results to specified filename
@@ -225,17 +221,8 @@ void onSurvey(EmbeddedCli* cli, char* args, void* context)
       {
         if (argv[0] == '-')
         {
-          if (argv[1] == 'b')
+          if (argv[1] == 'n')
           {
-            doBT = true;
-          }
-          else if (argv[1] == 'w')
-          {
-            doWiFi = true;
-          }
-          else if (argv[1] == 'n')
-          {
-            doJson = true;
             ++ii;
             if (ii <= argc)
             {
@@ -252,7 +239,7 @@ void onSurvey(EmbeddedCli* cli, char* args, void* context)
               paramErr = true;
               break;
             }
-          } // extracting JSON (and notes)
+          } // extracting notes
           else if (argv[1] == 'i')
           {
             ++ii;
@@ -312,18 +299,12 @@ void onSurvey(EmbeddedCli* cli, char* args, void* context)
 
   if (paramErr)
   {
-    Serial.printf(CLI_BOLD_RED "Bad parameter." CLI_YEL "Usage: survey [-i <interval>] [-f <filename>] [-j <notes>].\r\n" CLI_RESET);
+    Serial.printf(CLI_BOLD_RED "Bad parameter." CLI_YEL "Usage: survey [-i <interval>] [-f <filename>] [-n <notes>].\r\n" CLI_RESET);
     return;
   }
 
-  if (!doBT && !doWiFi)
-  {
-    doBT = true;
-    doWiFi = true;
-  }
-
   flockLog.addLogLine("CLI", "onSurvey()\r\n");
-  flockScan.survey(interval, doWiFi, doBT, fname, doJson, notes);
+  flockScan.survey(interval, fname,notes);
 }
 
 /******************************************************
@@ -349,7 +330,7 @@ void onScan(EmbeddedCli* cli, char* args, void* context)
         }
     }
 
-    Serial.printf(CLI_BOLD_PUR "onScan(), filename '%s'\r\n" CLI_RESET, logFileName);
+    flockScan.scan(logFileName);
 }
 
 

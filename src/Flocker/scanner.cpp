@@ -21,6 +21,7 @@
 #define BIG_BUF_SIZE (2 * 1024 * 1024)
 
 #define SCAN_HOP_TIME_MS 50
+#define BT_INTERVAL_MS 1000
 
 // There are 16 subtypes of data frames
 // Note that the "CF" data frames have been defined,
@@ -105,8 +106,8 @@ struct __attribute__((packed)) found_wifi_t
   uint8_t subtype;
   uint8_t channel;
   char ssid[SSID_LEN + 1];
-  uint8_t mac[6];
-  uint8_t assoc[6];
+  uint8_t sourceAddr[6];
+  uint8_t destAddr[6];
   uint32_t timestamp;
   int8_t rssi;
 };
@@ -163,6 +164,7 @@ static int16_t minWiFiRSSI;
 const size_t channelCount = sizeof(channels) / sizeof(channels[0]);
 static uint16_t channelInx = 0;
 static bool surveying = false;
+static bool continuousScanning = false;
 static MD5Builder hasher;
 static NimBLEScan* btScanner = nullptr;
 static uint8_t md5sum[16];
@@ -170,6 +172,9 @@ static std::map<uint32_t, found_wifi_t> wifiDevices;
 static std::map<uint32_t, found_wifi_t>::const_iterator citWifiDevices;
 static std::map<uint32_t, found_ble_t> bleDevices;
 static std::map<uint32_t, found_ble_t>::const_iterator citBleDevices;
+
+static std::list<std::string> wiFiMacMatch;
+static std::list<std::string>::const_iterator citWiFiMacMatch;
 
 void reverseBytes(uint8_t* data, size_t len);
 const char* wifiPktTypeToText(enum wifi_pkt_t t);
@@ -186,7 +191,14 @@ static bool loggerOK = false;
 *****************************************************/
 wifi_match_t wiFiMatch(const found_wifi_t& w)
 {
-
+  for (citWiFiMacMatch = wiFiMacMatch.begin(); citWiFiMacMatch != wiFiMacMatch.end(); ++citWiFiMacMatch)
+  {
+    if (!strncmp(macToText(w.sourceAddr), citWiFiMacMatch->c_str(), 8))
+    {
+      return (WIFI_MATCH_MAC);
+    }
+  }
+  return (WIFI_MATCH_NONE);
 }
 
 
@@ -289,11 +301,11 @@ void wifi_pkt_hndlr(void* buff, wifi_promiscuous_pkt_type_t type)
   if (goodPkt)
   {
     // populate the rest of the the results
-    wifi.channel = channels[channelInx]; // wifi channel
-    wifi.rssi = ppkt->rx_ctrl.rssi;      // signal strength
-    memcpy(wifi.mac, hdr->addr2, 6);     // MAC of the WiFi AP that sent the packet
-    memcpy(wifi.assoc, hdr->addr1, 6);   //
-    wifi.timestamp = millis();           // system timestamp (used for aging)
+    wifi.channel = channels[channelInx];      // wifi channel
+    wifi.rssi = ppkt->rx_ctrl.rssi;           // signal strength
+    memcpy(wifi.sourceAddr, hdr->addr2, 6);   //
+    memcpy(wifi.destAddr, hdr->addr1, 6);     //
+    wifi.timestamp = millis();                // system timestamp (used for aging)
 
     wifi_match_t match = wiFiMatch(wifi);
 
@@ -318,9 +330,9 @@ void wifi_pkt_hndlr(void* buff, wifi_promiscuous_pkt_type_t type)
             wifiDevices[key] = wifi;
             if (!surveying && loggerOK && flockCfg.getScanLogEnabledState())
             {
-                switch (match):
+                switch (match)
                 {
-                    case WIFI_MATCH_MAC: scanLog.addLogLine("WIFI", "Matched mac %s\r\n", wifi.sourceAddr); break;
+                    case WIFI_MATCH_MAC: scanLog.addLogLine("WIFI", "Matched mac %s\r\n", macToText(wifi.sourceAddr)); break;
                     case WIFI_MATCH_SSID: scanLog.addLogLine("WIFI", "Matched on ssid %s\r\n", wifi.ssid); break;
                 }
             }
@@ -468,6 +480,7 @@ bool SCANNER::begin()
 {
   channelInx = 0;
   surveying = false;
+  scannerRunning = false;
 
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
@@ -485,18 +498,28 @@ bool SCANNER::begin()
   // start with first channel
   esp_wifi_set_channel(channels[channelInx], WIFI_SECOND_CHAN_NONE);
 
+  // test for WiFi MAC matching
+  wiFiMacMatch.push_back("a0:8a:06");
+
   return (true);
 }
 
+// Static pointers used for allocation of BT callback
+// class.
 static btAdvertisedCBs* btCBs = nullptr;
 static void* btCBMem = nullptr;
 
+/************************************************
+* startBLE()
+*************************************************
+* Configure and start the Bluetooth scanner
+*************************************************/
 void SCANNER::startBLE()
 {
   if (btScanner)
   {
     this->stopBLE();
-    delay(100);
+    delay(50);
   }
 
   // doing a placement new to allocate the btAdvertisedCBs class
@@ -504,8 +527,6 @@ void SCANNER::startBLE()
   // of on-die SRAM
   btCBMem = ps_malloc(sizeof(btAdvertisedCBs));
   btAdvertisedCBs* btCBs = new (btCBMem) btAdvertisedCBs();
-
-  flockLog.addLogLine("SCAN", "Address of btCBMem is %p, address of btCBs is %p\r\n", btCBMem, btCBs);
 
   BLEDevice::init("");
   btScanner = BLEDevice::getScan();
@@ -517,11 +538,15 @@ void SCANNER::startBLE()
   btScanner->start(0, false);
 }
 
+/************************************************
+* stopBLE()
+*************************************************
+* Stop the Bluetooth scanner and release resources
+*************************************************/
 void SCANNER::stopBLE()
 {
   if (btScanner)
   {
-    Serial.printf(CLI_CYA "SCANNER::stopBLE() - scanner was non-null\r\n" CLI_RESET);
     btScanner->stop();
     delay(200);
     btScanner->clearResults();
@@ -536,6 +561,142 @@ void SCANNER::stopBLE()
   }
 }
 
+/************************************************
+* update()
+*************************************************
+* Call this method periodically
+*************************************************/
+void SCANNER::update()
+{
+    if (scannerRunning)
+    {
+        if ((millis() - btTimeOffset) > BT_INTERVAL_MS)
+        {
+            btTimeOffset = millis();
+
+            startBLE();
+            delay(100);
+            stopBLE();
+        }
+
+        // handle WiFi channel switching
+        if ((millis() - channelTimeOffset) > channelTime)
+        {
+            channelTimeOffset = millis();
+            ++channelInx;
+            channelInx %= channelCount;
+            esp_wifi_set_channel(channels[channelInx], WIFI_SECOND_CHAN_NONE);
+        }
+
+        // things to do when continuously scanning
+        if (continuousScanning)
+        {
+            if (Serial.available())
+            {
+                stopScanning();
+                Serial.read();  // read the character that stopped the scan
+            }
+            else
+            {
+                // remove found devices when they timeout
+                for (citWifiDevices = wifiDevices.begin(); citWifiDevices != wifiDevices.end(); ++citWifiDevices)
+                {
+                    if (millis() > (citWifiDevices->second.timestamp + (flockCfg.getScanHoldTime() * 1000)))
+                    {
+                        wifiDevices.erase(citWifiDevices->first);
+                    }
+                }
+
+                if (wifiDevices.size())
+                {
+                    flockLED.stopBlu(LEDS::LED_COMMS);
+                    flockLED.alertRed(LEDS::LED_COMMS);
+                }
+                else
+                {
+                    flockLED.stopRed(LEDS::LED_COMMS);
+                    flockLED.steadyBlu(LEDS::LED_COMMS, 140);
+                }
+            }
+        } // doing continuous scan
+        else if (surveying)
+        {
+            if (!surveyStopTrigger)
+            {
+                if (channelInx)
+                {
+                    surveyStopTrigger = true;
+                }
+            }
+            else if (!channelInx)
+            {
+                Serial.printf(CLI_RESET "\r\n\r\n");
+                stopScanning();
+                postSurveyActivities();
+            }
+        }
+        else
+        {
+            // we shouldn't be here, shut it down
+            Serial.printf(CLI_BOLD_RED "\r\nStopping un-started scan!\r\n" CLI_RESET);
+            stopScanning();
+        }
+    }
+}
+
+/************************************************
+* stopScanning()
+*************************************************
+* Shutdown any scan (continuous or survey)
+*************************************************/
+void SCANNER::stopScanning()
+{
+    continuousScanning = false;
+    scannerRunning = false;
+    surveying = false;
+
+    holdCLI(false);
+    esp_wifi_set_promiscuous(false);
+    stopBLE();
+
+    flockLED.stopRed(LEDS::LED_COMMS);
+    flockLED.stopGrn(LEDS::LED_COMMS);
+    flockLED.stopBlu(LEDS::LED_COMMS);
+
+    if (loggerOK)
+    {
+        scanLog.addLogLine("SCAN", "Ending scan, closing log.\r\n");
+        scanLog.flushNow();
+        scanLog.close();
+        loggerOK = false;
+    }
+
+    flockLog.addLogLine("SCAN", "Stopping scanner.\r\n");
+    Serial.printf(CLI_RESET "\r\n");
+}
+
+/************************************************
+* startWiFi()
+*************************************************
+* Centralized method to turn on promicuous mode
+*************************************************/
+void SCANNER::startWiFi()
+{
+    scannerRunning = true;
+    holdCLI(true);
+    channelInx = 0;
+
+    bleDevices.clear();
+    wifiDevices.clear();
+    esp_wifi_set_promiscuous(true);
+    esp_wifi_set_channel(channels[channelInx], WIFI_SECOND_CHAN_NONE);
+}
+
+/************************************************
+* scan()
+*************************************************
+* Begin the continuous scan process
+*************************************************/
 void SCANNER::scan(const char *logname)
 {
     if (logname && strlen(logname))
@@ -547,260 +708,180 @@ void SCANNER::scan(const char *logname)
         loggerOK = scanLog.begin(500, "autoscan", flockCfg.getScanLogFileCount());
     }
 
-    holdCLI(true);
+    channelTime = SCAN_HOP_TIME_MS;
+    channelTimeOffset = btTimeOffset = millis();
 
-    Serial.printf(CLI_BOLD_CYA "Starting scan - press any key to stop\r\n" CLI_REST);
+    startWiFi();
 
+    continuousScanning = true;
+
+    Serial.printf(CLI_BOLD_CYA "Starting scan - press any key to stop\r\n" CLI_RESET);
     flockLog.addLogLine("SCAN", "scan() starting\r\n");
-    uint32_t msnow = millis();
-    bleDevices.clear();
-    wifiDevices.clear();
-    channelInx = 0;
-    esp_wifi_set_promiscuous(true);
-    esp_wifi_set_channel(channels[channelInx], WIFI_SECOND_CHAN_NONE);
+}
 
-    while (!Serial.available())
+/************************************************
+* survey()
+*************************************************
+* Begin a single scan process
+*************************************************/
+void SCANNER::survey(uint32_t interval, const char* fname, const char* notes)
+{
+    if (fname)      strncpy(surveyFileName, fname, 119);
+    else            memset(surveyFileName, '\0', 120);
+
+    if (notes)      strncpy(surveyNotes, notes, 119);
+    else            memset(surveyNotes, '\0', 120);
+
+    channelTimeOffset = btTimeOffset = millis();
+    channelTime = interval;
+    surveying = true;
+    surveyStopTrigger = false;
+
+    startWiFi();
+
+    flockLED.alertBlu(LEDS::LED_COMMS);
+    flockLED.alertGrn(LEDS::LED_COMMS);
+
+    Serial.printf(CLI_CYA "Survey starting\r\n" CLI_RESET);
+    flockLog.addLogLine("SCAN", "survey() starting\r\n");
+}
+
+/************************************************
+* postSurveyActivities()
+*************************************************
+* Process the data after a single survey scan
+*************************************************/
+void SCANNER::postSurveyActivities()
+{
+    JsonDocument sur;
+    if (strlen(surveyNotes))      sur["SurveyNotes"] = surveyNotes;
+    else                          sur["SurveyNotes"] = "Generic survey";
+
+    sur["Device"] = flockCfg.getDeviceName();
+
+    JsonArray location = sur["LocationLongLat"].to<JsonArray>();
+    location.add(gps.getLongitude());
+    location.add(gps.getLatitude());
+    sur["SatelliteCount"] = gps.getSatelliteCount();
+
+    time_t t = time(NULL);
+    tm *tmp;
+    tmp = localtime(&t);
+    char tstring[64];
+    strftime(tstring, 63, "%F %T", tmp);
+    sur["DateTime"] = tstring;
+    sur["Timezone"] = flockCfg.getTimeZone();
+    sur["DataVersion"] = SURVEY_JSON_VERSION;
+
+    JsonArray devs = sur["WiFiDevices"].to<JsonArray>();
+    JsonDocument dev;
+
+    for (citWifiDevices = wifiDevices.begin(); citWifiDevices != wifiDevices.end(); ++citWifiDevices)
     {
-        if ((millis() - msnow) > SCAN_HOP_TIME_MS)
+        dev.clear();
+        dev["Method"] = discoveryToText(WIFI_DISCOVERY);
+        dev["Type"] = wifiPktTypeToText(citWifiDevices->second.type);
+        if (citWifiDevices->second.type == wifi_management)
         {
-          msnow = millis();
-          ++channelInx;
-          channelInx %= channelCount;
-          esp_wifi_set_channel(channels[channelInx], WIFI_SECOND_CHAN_NONE);
+            dev["Subtype"] = WiFiMgmtSubtypeToText(citWifiDevices->second.subtype);
         }
-
-        // remove found devices when they timeout
-        for (citWifiDevices = wifiDevices.begin(); citWifiDevices != wifiDevices.end(); ++citWifiDevices)
+        else
         {
-            if (millis() > (citWifiDevices->second.timestamp + flockCfg.getScanHoldTime()))
+            dev["Subtype"] = WiFiDataSubtypeToText(citWifiDevices->second.subtype);
+        }
+        dev["SSID"] = citWifiDevices->second.ssid;
+        dev["SourceAddr"] = macToText(citWifiDevices->second.sourceAddr);
+        dev["DestAddr"] = macToText(citWifiDevices->second.destAddr);
+        dev["Channel"] = citWifiDevices->second.channel;
+        dev["RSSI"] = citWifiDevices->second.rssi;
+
+        devs.add(dev);
+    } // adding WiFi devices
+
+    JsonArray btdevs = sur["BLEDevices"].to<JsonArray>();
+
+    for (citBleDevices = bleDevices.begin(); citBleDevices != bleDevices.end(); ++citBleDevices)
+    {
+        dev.clear();
+        dev["Method"] = discoveryToText(BTLE_DISCOVERY);
+        dev["Name"] = citBleDevices->second.name;
+        dev["MAC"] = macToText(citBleDevices->second.mac);
+        dev["RSSI"] = citBleDevices->second.rssi;
+
+        JsonArray uid16 = dev["UUID16bit"].to<JsonArray>();
+        std::list<uint16_t> tmp16 = citBleDevices->second.services16;
+        if (tmp16.size())
+        {
+            for (std::list<uint16_t>::const_iterator cit = tmp16.begin(); cit != tmp16.end(); ++cit)
             {
-                wifiDevices.erase(citWifiDevices->first);
+                uid16.add(*cit);
             }
         }
 
-        if (wifiDevices.size())
+        JsonArray uid128 = dev["UUID128bit"].to<JsonArray>();
+        std::list<std::string> tmp128 = citBleDevices->second.services128;
+        if (tmp16.size())
         {
-            flockLED.stopBlu(LEDS:LED_COMMS);
-            flockLED.alertRed(LEDS::LED_COMMS);
+            for (std::list<std::string>::const_iterator cit = tmp128.begin(); cit != tmp128.end(); ++cit)
+            {
+                uid128.add(*cit);
+            }
         }
-        else
+
+        JsonArray duid16 = dev["DataUUID16bit"].to<JsonArray>();
+        tmp16 = citBleDevices->second.serviceData16;
+        if (tmp16.size())
         {
-            flockLED.stopRed(LEDS::LED_COMMS);
-            flockLED.cycleBlu(LEDS::LED_COMMS, 1000, 20);
+            for (std::list<uint16_t>::const_iterator cit = tmp16.begin(); cit != tmp16.end(); ++cit)
+            {
+                duid16.add(*cit);
+            }
         }
 
-        flockLED.update();
-        scanLog.update();
-    }
+        JsonArray duid128 = dev["DataUUID128bit"].to<JsonArray>();
+        tmp128 = citBleDevices->second.serviceData128;
+        if (tmp16.size())
+        {
+            for (std::list<std::string>::const_iterator cit = tmp128.begin(); cit != tmp128.end(); ++cit)
+            {
+                duid128.add(*cit);
+            }
+        }
 
-    // throw away the key pressed to stop this scan
-    char c = Serial.read();
+        btdevs.add(dev);
+    } // adding Bluetooth items to JSON
 
-    esp_wifi_set_promiscuous(false);
+    Serial.printf(CLI_CYA "Survey done, found " CLI_GRN "%d" CLI_CYA " WiFi devices, " CLI_GRN "%d" CLI_CYA " Bluetooth devices.\r\n" CLI_RESET,
+            wifiDevices.size(), bleDevices.size());
 
-    flockLED.stopRed(LEDS::LED_COMMS);
-    flockLED.stopBlu(LEDS::LED_COMMS);
-    scanLog.close();
-}
-
-/*****************************************************
-* Do a single pass through all WiFi channels to see
-* what we can find out there.
-*****************************************************/
-void SCANNER::survey(uint32_t interval, bool doWiFi, bool doBT, const char* fname, bool doJson, const char* notes)
-{
-  flockLog.addLogLine("SCAN", "survey() starting\r\n");
-  uint32_t msnow = millis();
-  bleDevices.clear();
-  wifiDevices.clear();
-
-  flockLED.alertBlu(LEDS::LED_COMMS);
-  flockLED.alertGrn(LEDS::LED_COMMS);
-
-  Serial.printf(CLI_CYA "Survey starting.\r\n" CLI_RESET);
-  channelInx = 0;
-  surveying = doWiFi;
-
-  if (surveying)
-  {
-    Serial.printf(CLI_CYA "Starting WiFi.\r\n" CLI_RESET);
-    esp_wifi_set_promiscuous(true);
-    Serial.printf(CLI_YEL "Setting channel %d" CLI_RESET, channels[channelInx]);
-    esp_wifi_set_channel(channels[channelInx], WIFI_SECOND_CHAN_NONE);
-
-    flockLog.addLogLine("SCAN", "survey() starting WiFi scan\r\n");
-
-    while (surveying)
+    if (!strlen(surveyFileName))
     {
-      if ((millis() - msnow) > interval)
-      {
-        msnow = millis();
-        ++channelInx;
-        channelInx %= channelCount;
-
-        if (!channelInx)
-        {
-          surveying = false;
-          esp_wifi_set_promiscuous(false);
-          Serial.printf(CLI_CYA "\r\nWiFi done.\r\n" CLI_RESET);
-        }
-        else
-        {
-          Serial.printf(CLI_YEL "...%d" CLI_RESET, channels[channelInx]);
-          esp_wifi_set_channel(channels[channelInx], WIFI_SECOND_CHAN_NONE);
-        }
-      }
-
-      flockLED.update();
-    }
-
-    flockLog.addLogLine("SCAN", "survey() WiFi scan done\r\n");
-  }
-
-  if (doBT)
-  {
-    flockLog.addLogLine("SCAN", "survey() starting BTLE scan\r\n");
-    Serial.printf(CLI_CYA "Starting BLE\r\n");
-    this->startBLE();
-    delay(250);
-    this->stopBLE();
-    Serial.printf(CLI_CYA "BLE Done\r\n");
-    flockLog.addLogLine("SCAN", "survey() BTLE scan done\r\n");
-  }
-
-  JsonDocument sur;
-  if (notes && strlen(notes))     sur["SurveyNotes"] = notes;
-  else                            sur["SurveyNotes"] = "Generic survey";
-
-  sur["Device"] = flockCfg.getDeviceName();
-
-  JsonArray location = sur["LocationLongLat"].to<JsonArray>();
-  location.add(gps.getLongitude());
-  location.add(gps.getLatitude());
-  sur["SatelliteCount"] = gps.getSatelliteCount();
-
-  time_t t = time(NULL);
-  tm *tmp;
-  tmp = localtime(&t);
-  char tstring[64];
-  strftime(tstring, 63, "%F %T", tmp);
-  sur["DateTime"] = tstring;
-  sur["Timezone"] = flockCfg.getTimeZone();
-  sur["DataVersion"] = SURVEY_JSON_VERSION;
-
-  JsonArray devs = sur["WiFiDevices"].to<JsonArray>();
-  JsonDocument dev;
-
-  for (citWifiDevices = wifiDevices.begin(); citWifiDevices != wifiDevices.end(); ++citWifiDevices)
-  {
-    dev.clear();
-    dev["Method"] = discoveryToText(WIFI_DISCOVERY);
-    dev["Type"] = wifiPktTypeToText(citWifiDevices->second.type);
-    if (citWifiDevices->second.type == wifi_management)
-    {
-      dev["Subtype"] = WiFiMgmtSubtypeToText(citWifiDevices->second.subtype);
+        serializeJsonPretty(sur, Serial);
+        Serial.printf("\r\n");
     }
     else
     {
-      dev["Subtype"] = WiFiDataSubtypeToText(citWifiDevices->second.subtype);
+        Serial.printf(CLI_CYA "Saving survey results to " CLI_GRN "%s\r\n" CLI_RESET, surveyFileName);
+
+        char* output = (char*)ps_malloc(BIG_BUF_SIZE + 1);
+        memset(output, 0, BIG_BUF_SIZE + 1);
+
+        if (output)
+        {
+            serializeJson(sur, output, BIG_BUF_SIZE);
+
+            size_t written = flockfs.writeFile(surveyFileName, (uint8_t*)output, strlen(output));
+            Serial.printf(CLI_CYA "Wrote " CLI_GRN "%d" CLI_CYA " bytes to file\r\n" CLI_RESET, written);
+            flockLog.addLogLine("SCAN", "survey() wrote %d bytes to %s\r\n", written, surveyFileName);
+
+            free (output);
+        }
+        else
+        {
+            flockLog.addLogLine("SCAN", "Unable to allocate %d bytes for file write buffer\r\n", BIG_BUF_SIZE + 1);
+            Serial.printf(CLI_BOLD_RED "Unable to allocate for file write buffer!\r\n" CLI_RESET);
+        }
     }
-    dev["SSID"] = citWifiDevices->second.ssid;
-    dev["SourceAddr"] = macToText(citWifiDevices->second.mac);
-    dev["DestAddr"] = macToText(citWifiDevices->second.assoc);
-    dev["Channel"] = citWifiDevices->second.channel;
-    dev["RSSI"] = citWifiDevices->second.rssi;
-
-    devs.add(dev);
-  }
-
-  JsonArray btdevs = sur["BLEDevices"].to<JsonArray>();
-
-  for (citBleDevices = bleDevices.begin(); citBleDevices != bleDevices.end(); ++citBleDevices)
-  {
-    dev.clear();
-    dev["Method"] = discoveryToText(BTLE_DISCOVERY);
-    dev["Name"] = citBleDevices->second.name;
-    dev["MAC"] = macToText(citBleDevices->second.mac);
-    dev["RSSI"] = citBleDevices->second.rssi;
-
-    JsonArray uid16 = dev["UUID16bit"].to<JsonArray>();
-    std::list<uint16_t> tmp16 = citBleDevices->second.services16;
-    if (tmp16.size())
-    {
-      for (std::list<uint16_t>::const_iterator cit = tmp16.begin(); cit != tmp16.end(); ++cit)
-      {
-        uid16.add(*cit);
-      }
-    }
-
-    JsonArray uid128 = dev["UUID128bit"].to<JsonArray>();
-    std::list<std::string> tmp128 = citBleDevices->second.services128;
-    if (tmp16.size())
-    {
-      for (std::list<std::string>::const_iterator cit = tmp128.begin(); cit != tmp128.end(); ++cit)
-      {
-        uid128.add(*cit);
-      }
-    }
-
-    JsonArray duid16 = dev["DataUUID16bit"].to<JsonArray>();
-    tmp16 = citBleDevices->second.serviceData16;
-    if (tmp16.size())
-    {
-      for (std::list<uint16_t>::const_iterator cit = tmp16.begin(); cit != tmp16.end(); ++cit)
-      {
-        duid16.add(*cit);
-      }
-    }
-
-    JsonArray duid128 = dev["DataUUID128bit"].to<JsonArray>();
-    tmp128 = citBleDevices->second.serviceData128;
-    if (tmp16.size())
-    {
-      for (std::list<std::string>::const_iterator cit = tmp128.begin(); cit != tmp128.end(); ++cit)
-      {
-        duid128.add(*cit);
-      }
-    }
-
-    btdevs.add(dev);
-  }
-
-  Serial.printf(CLI_CYA "Survey done, found " CLI_GRN "%d" CLI_CYA " WiFi devices, " CLI_GRN "%d" CLI_CYA " Bluetooth devices.\r\n" CLI_RESET,
-      wifiDevices.size(), bleDevices.size());
-
-  if (!fname || !strlen(fname))
-  {
-    serializeJsonPretty(sur, Serial);
-    Serial.printf("\r\n");
-  }
-  else
-  {
-    Serial.printf(CLI_CYA "Saving survey results to " CLI_GRN "%s" CLI_CYA ", format " CLI_YEL "%s\r\n" CLI_RESET,
-      fname, doJson ? "JSON" : "text");
-
-    char* output = (char*)ps_malloc(BIG_BUF_SIZE + 1);
-    memset(output, 0, BIG_BUF_SIZE + 1);
-
-    if (output)
-    {
-      serializeJson(sur, output, BIG_BUF_SIZE);
-
-      size_t written = flockfs.writeFile(fname, (uint8_t*)output, strlen(output));
-      Serial.printf(CLI_CYA "Wrote " CLI_GRN "%d" CLI_CYA " bytes to file\r\n" CLI_RESET, written);
-      flockLog.addLogLine("SCAN", "survey() wrote %d bytes to %s\r\n", written, fname);
-
-      free (output);
-    }
-    else
-    {
-      flockLog.addLogLine("SCAN", "Unable to allocate %d bytes for file write buffer\r\n", BIG_BUF_SIZE + 1);
-      Serial.printf(CLI_BOLD_RED "Unable to allocate for file write buffer!\r\n" CLI_RESET);
-    }
-  }
-
-  flockLED.stopBlu(LEDS::LED_COMMS);
-  flockLED.stopGrn(LEDS::LED_COMMS);
 } // survey
 
 /*************************************************

@@ -73,6 +73,10 @@ void LEDS::update()
 
       switch (thisLED->mode)
       {
+        case LEDS::LED_MODE_STEADY:
+        {
+          break;
+        }
         case LEDS::LED_MODE_PULSE:
         {
           if (elapsed >= thisLED->pulseTime)
@@ -166,7 +170,7 @@ void LEDS::cycleGrn(LED_id_t id, uint32_t base, uint32_t on)  { this->cycle(id, 
 void LEDS::cycleBlu(LED_id_t id, uint32_t base, uint32_t on)  { this->cycle(id, LEDS::CLR_BLU, base, on); }
 void LEDS::cycle(LED_id_t id, LEDS::LED_color_t c, uint32_t base, uint32_t on)
 {
-    if (leds[id].mode != LEDS::LED_MODE_CYCLE_ON && leds[id].mode != LEDS::LED_MODE_CYCLE_OFF)
+    if (leds[id][c].mode != LEDS::LED_MODE_CYCLE_ON && leds[id][c].mode != LEDS::LED_MODE_CYCLE_OFF)
     {
         leds[id][c].cycleTime = base;
         leds[id][c].cycleOnTime = on;
@@ -175,6 +179,21 @@ void LEDS::cycle(LED_id_t id, LEDS::LED_color_t c, uint32_t base, uint32_t on)
         leds[id][c].level = maxBright;
     }
 }
+
+/*******************************************
+* steadyXXX()
+********************************************
+* continusouly light the specified LED
+*******************************************/
+void LEDS::steadyRed(LED_id_t id, uint8_t level)  { this->steady(id, LEDS::CLR_RED, level); }
+void LEDS::steadyGrn(LED_id_t id, uint8_t level)  { this->steady(id, LEDS::CLR_GRN, level); }
+void LEDS::steadyBlu(LED_id_t id, uint8_t level)  { this->steady(id, LEDS::CLR_BLU, level); }
+void LEDS::steady(LED_id_t id, LEDS::LED_color_t c, uint8_t level)
+{
+  leds[id][c].level = level;
+  leds[id][c].mode = LEDS::LED_MODE_STEADY;
+}
+
 
 /*******************************************
 * stopXXX()

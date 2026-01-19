@@ -45,6 +45,11 @@ public:
   void cycleGrn(LED_id_t id, uint32_t base, uint32_t on);
   void cycle(LED_id_t id, LEDS::LED_color_t c, uint32_t base, uint32_t on);
 
+  void steadyRed(LED_id_t id, uint8_t level);
+  void steadyGrn(LED_id_t id, uint8_t level);
+  void steadyBlu(LED_id_t id, uint8_t level);
+  void steady(LED_id_t id, LEDS::LED_color_t c, uint8_t level);
+
   void stopRed(LED_id_t id);
   void stopGrn(LED_id_t id);
   void stopBlu(LED_id_t id);
@@ -78,6 +83,7 @@ private:
   enum LED_mode_t
   {
     LED_MODE_OFF = 0,
+    LED_MODE_STEADY,
     LED_MODE_PULSE,
     LED_MODE_ALERT,
     LED_MODE_CYCLE_ON,
