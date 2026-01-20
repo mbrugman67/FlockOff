@@ -8,6 +8,7 @@
 #include "flockCfg.h"
 #include "scanner.h"
 #include "flockLog.h"
+#include "targets.h"
 
 // constants for config'ing objects
 #define GPS_PORT_TX 5        // defined by circuit board - don't change unless you changed hardware
@@ -23,6 +24,7 @@ MBFS flockfs;
 CONFIG flockCfg;
 SCANNER flockScan;
 LEDS flockLED;
+TARGETS scanTargets;
 bool psRamInitOk;
 bool initOk;
 
@@ -53,6 +55,7 @@ void setup() {
   initOk &= flockScan.begin();
   initOk &= flockLED.begin(ADDR_LED_PIN, 140);
   initOk &= setupCLI();
+  initOk &= scanTargets.begin();
 
   if (!initOk)
   {

@@ -92,40 +92,6 @@ uint8_t fixedParameterLength[] = {
   0   // 0x07 - reserved subtype
 };
 
-enum wifi_pkt_t
-{
-  wifi_management,
-  wifi_data
-};
-
-// structure to hold details about every device found; not just
-// Flock type things at this point (found by WiFi)
-struct __attribute__((packed)) found_wifi_t
-{
-  wifi_pkt_t type;
-  uint8_t subtype;
-  uint8_t channel;
-  char ssid[SSID_LEN + 1];
-  uint8_t sourceAddr[6];
-  uint8_t destAddr[6];
-  uint32_t timestamp;
-  int8_t rssi;
-};
-
-// structure to hold details about every device found; not just
-// Flock type things at this point (found by Bluetooth LE)
-struct found_ble_t
-{
-  char name[SSID_LEN + 1];
-  uint8_t mac[6];
-  int8_t rssi;
-  uint32_t timestamp;
-  std::list<uint16_t> services16;
-  std::list<std::string> services128;
-  std::list<uint16_t> serviceData16;
-  std::list<std::string> serviceData128;
-};
-
 // variable length tagged parameter in a management packet.  A tagged parameter
 // is made up of the ID, length of the data, and the data itself.  For
 // 802.11 packets, parameter 0 is the SSID, up to 32 bytes long
@@ -151,13 +117,6 @@ struct __attribute__((packed)) wifi_ieee80211_mac_hdr_t
 // WiFi channels
 static const uint8_t channels[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
                                    36, 40, 44, 48, 149, 153, 157, 161, 165};
-
-enum wifi_match_t
-{
-    WIFI_MATCH_NONE = 0,
-    WIFI_MATCH_MAC,
-    WIFI_MATCH_SSID
-};
 
 static int16_t minBTRSSI;
 static int16_t minWiFiRSSI;
@@ -200,7 +159,6 @@ wifi_match_t wiFiMatch(const found_wifi_t& w)
   }
   return (WIFI_MATCH_NONE);
 }
-
 
 /*************************************************
 * Promiscuous mode packet callback handler
@@ -598,25 +556,27 @@ void SCANNER::update()
             }
             else
             {
-                // remove found devices when they timeout
-                for (citWifiDevices = wifiDevices.begin(); citWifiDevices != wifiDevices.end(); ++citWifiDevices)
+              // remove found devices when they timeout
+              for (citWifiDevices = wifiDevices.begin(); citWifiDevices != wifiDevices.end(); ++citWifiDevices)
+              {
+                if (millis() > (citWifiDevices->second.timestamp + (flockCfg.getScanHoldTime() * 1000)))
                 {
-                    if (millis() > (citWifiDevices->second.timestamp + (flockCfg.getScanHoldTime() * 1000)))
-                    {
-                        wifiDevices.erase(citWifiDevices->first);
-                    }
+                  if (loggerOK && flockCfg.getScanLogEnabledState())
+                  {
+                    scanLog.addLogLine("WIFI", "Removed timedout mac %s\r\n", macToText(citWifiDevices->second.sourceAddr));
+                  }
+                  wifiDevices.erase(citWifiDevices->first);
                 }
 
                 if (wifiDevices.size())
                 {
-                    flockLED.stopBlu(LEDS::LED_COMMS);
-                    flockLED.alertRed(LEDS::LED_COMMS);
+                  flockLED.cycleRed(LEDS::LED_COMMS, 1000, 666);
                 }
                 else
                 {
-                    flockLED.stopRed(LEDS::LED_COMMS);
-                    flockLED.steadyBlu(LEDS::LED_COMMS, 140);
+                  flockLED.stopRed(LEDS::LED_COMMS);
                 }
+              }
             }
         } // doing continuous scan
         else if (surveying)
@@ -714,6 +674,7 @@ void SCANNER::scan(const char *logname)
     startWiFi();
 
     continuousScanning = true;
+    flockLED.steadyBlu(LEDS::LED_COMMS, flockCfg.getLEDBrightness());
 
     Serial.printf(CLI_BOLD_CYA "Starting scan - press any key to stop\r\n" CLI_RESET);
     flockLog.addLogLine("SCAN", "scan() starting\r\n");

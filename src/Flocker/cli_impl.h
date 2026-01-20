@@ -94,6 +94,14 @@ const char* helpConfig = "config [OPTION]\r\n"
                          "  -l      display current configuration (dumps the raw JSON in pretty-print format)\r\n\r\n"
                          "If -l not given, show system configuration menu.\r\n\r\n";
 
+// criteria config stuff
+void onCriteria(EmbeddedCli* cli, char* args, void* context);
+const char* helpCriteria = "criteria [OPTIONS]\r\n"
+                           "Set or display target matching criteria\r\n\r\n"
+                           "  -s   set default WiFi MAC prefix set\r\n"
+                           "  -l   display wiFi MAC prefixes\r\n\r\n"
+                           "This is a lot of stuff here \r\n\r\n";
+
 /*******************************************************
 * Binding struct for each command:
  struct CliCommandBinding {
@@ -118,7 +126,8 @@ const struct CliCommandBinding bindings[] = {
   {"cp", "Copy file", helpCp, true, nullptr, onCp},
   {"cat", "Cat file", helpCat, true, nullptr,  onCat},
   {"status", "Get system status", helpStatus, false, nullptr, onStatus},
-  {"config", "Get/Set config values", helpConfig, true, nullptr, onConfig}};
+  {"config", "Get/Set config values", helpConfig, true, nullptr, onConfig},
+  {"criteria", "Get/Set target matching criteria", helpCriteria, true, nullptr, onCriteria}};
 
 const size_t bindingCount = sizeof(bindings) / sizeof(bindings[0]);
 
@@ -167,6 +176,24 @@ void onConfig(EmbeddedCli* cli, char* args, void* context)
     flockCfg.setConfigValues();
   }
 }
+
+
+void onCriteria(EmbeddedCli* cli, char* args, void* context)
+{
+  if (embeddedCliGetTokenCount(args) == 1)
+  {
+    const char* cmd = embeddedCliGetToken(args, 1);
+    if (!strcmp("-l", cmd))
+    {
+      Serial.printf(CLI_YEL "WiFi MAC match list has " CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL " targets\r\n" CLI_RESET, scanTargets.getWiFiMacCount());
+    }
+    else if (!strcmp("-s", cmd))
+    {
+      Serial.printf(CLI_YEL "Set default WiFi MAC match list, " CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL " targets\r\n", scanTargets.loadDefaultWiFiMacs());
+    }
+  }
+}
+
 
 /******************************************************
 * onVersion()
@@ -328,6 +355,7 @@ void onScan(EmbeddedCli* cli, char* args, void* context)
         {
             strncpy(logFileName, embeddedCliGetToken(args, 2), 119);
         }
+        Serial.printf(CLI_BOLD_RED "Bad parameter: usage scan [-l <FILENAME>]\r\n" CLI_RESET);
     }
 
     flockScan.scan(logFileName);

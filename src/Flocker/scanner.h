@@ -1,6 +1,47 @@
 #ifndef SCANNER_H_
 #define SCANNER_H_
 
+#include <list>
+#include <string>
+
+#include "Arduino.h"
+
+#define SSID_LEN  32  // 802.11 max SSID length
+
+enum wifi_pkt_t
+{
+  wifi_management,
+  wifi_data
+};
+
+// structure to hold details about every device found; not just
+// Flock type things at this point (found by WiFi)
+struct __attribute__((packed)) found_wifi_t
+{
+  wifi_pkt_t type;
+  uint8_t subtype;
+  uint8_t channel;
+  char ssid[SSID_LEN + 1];
+  uint8_t sourceAddr[6];
+  uint8_t destAddr[6];
+  uint32_t timestamp;
+  int8_t rssi;
+};
+
+// structure to hold details about every device found; not just
+// Flock type things at this point (found by Bluetooth LE)
+struct found_ble_t
+{
+  char name[SSID_LEN + 1];
+  uint8_t mac[6];
+  int8_t rssi;
+  uint32_t timestamp;
+  std::list<uint16_t> services16;
+  std::list<std::string> services128;
+  std::list<uint16_t> serviceData16;
+  std::list<std::string> serviceData128;
+};
+
 class SCANNER
 {
 public:
