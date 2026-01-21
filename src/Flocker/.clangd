@@ -1,0 +1,7 @@
+CompileFlags:
+  Add:
+    [
+      -I/home/matty/Arduino/libraries/LiteLED/src,
+      -I/home/matty/.arduino15/packages/esp32/tools/esp-x32/2507/xtensa-esp-elf/include/c++/14.2.0,
+      -I/home/matty/.arduino15/packages/esp32/3.3.3/cores/esp32,
+    ]

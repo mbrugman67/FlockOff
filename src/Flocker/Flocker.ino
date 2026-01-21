@@ -73,6 +73,19 @@ void setup() {
   flockLog.addLogLine("main", "Leaving setup()\r\n");
 }
 
+void busyDelayLoop(uint32_t delay)
+{
+  uint32_t offset = millis();
+
+  while ((millis() - offset) < delay)
+  {
+    gps.update();
+    flockLED.update();
+    updateCLI();
+    flockLog.update();
+  }
+}
+
 // Arduino-defined main loop.  Called continuously by embedded OS
 void loop() {
   static uint32_t msFlash = millis();

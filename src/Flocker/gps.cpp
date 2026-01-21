@@ -138,6 +138,16 @@ void NMEAGPS::parseSentence()
   } 
 }
 
+const char* NMEAGPS::getTimeLocationString()
+{
+  static char ret[128] = {'\0'};
+  static char tim[32] = {'\0'};
+
+  strftime(tim, 63, "%D %T", &localtm);
+  snprintf(ret, 127, "%s %0.5f %0.5f", tim, longitude, latitude);
+  return (ret);
+}
+
 void NMEAGPS::update()
 {
   if (firstGGA && firstGLL && firstRMC && !timeIsSet)

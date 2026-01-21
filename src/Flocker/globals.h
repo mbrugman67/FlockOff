@@ -11,7 +11,6 @@
 #include "flockLog.h"
 #include "targets.h"
 
-
 /**********************************
 * Versions
 **********************************/
@@ -23,6 +22,12 @@
 
 #define SURVEY_JSON_VERSION  2
 
+
+/**********************************
+* Global methods
+**********************************/
+void busyDelayLoop(uint32_t delay);
+const char* macToText(const uint8_t* mac);
 
 /**********************************
 * gobal classes/constants/variables

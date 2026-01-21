@@ -5,8 +5,8 @@
 
 #define LOG_FILE_EXT "log"
 
-#define LOG_BUFF_SIZE (8 * 1024)
-#define LOG_LINE_SIZE 512
+#define LOG_BUFF_SIZE (32 * 1024)
+#define LOG_LINE_SIZE 1024
 
 bool FLOGGER::begin(uint32_t interval, const char* baseName, uint8_t fileCount)
 {

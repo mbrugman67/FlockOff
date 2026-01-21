@@ -21,6 +21,8 @@ public:
 
   void getTime(struct tm* tm)  { memcpy(tm, &localtm, sizeof(struct tm)); }
 
+  const char* getTimeLocationString();
+
 private:
   EspSoftwareSerial::UART gpsPort;
 

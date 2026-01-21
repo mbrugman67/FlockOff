@@ -1,5 +1,7 @@
 #include "targets.h"
 
+#include <cctype>
+
 #include "globals.h"
 #include "flockFs.h"
 #include "defaultTargets.h"
@@ -15,11 +17,29 @@
 bool TARGETS::begin()
 {
   inputstr = (char*)ps_malloc(TARGET_INPUT_STR_LEN + 1);
-  return (true);
+  this->loadDefaultWiFiMacs();
+  return (inputstr);
 }
 
-wifi_match_t TARGETS::isWiFiMatch(const found_wifi_t& w)
+wifi_match_t TARGETS::isWiFiMatch(const found_wifi_t& w, utils::string& info)
 {
+  char prefix[9] = {'\0'};
+  char PREFIX[9] = {'\0'};
+  strncpy(prefix, macToText(w.sourceAddr), 8);
+  
+  for (uint8_t ii = 0; ii < 9; ++ii)
+  {
+    PREFIX[ii] = std::toupper(prefix[ii]);
+  }
+
+  citWiFiMacs = wiFiMacs.find(PREFIX);
+
+  if (citWiFiMacs != wiFiMacs.end())
+  {
+    info = utils::string(citWiFiMacs->second);
+    return (WIFI_MATCH_MAC);
+  }
+
   return (WIFI_MATCH_NONE);
 }
 
@@ -32,13 +52,18 @@ int TARGETS::loadDefaultWiFiMacs()
 {
   wiFiMacs.clear();
 
-  size_t defaultCount = (sizeof(wifi_macs) / sizeof(wifi_macs[0]));
+  size_t defaultCount = (sizeof(wifiDefMacs) / sizeof(match_mac_t));
 
   flockLog.addLogLine("TARGETS", "Adding %d default WiFi MAC match prefixes:\r\n", defaultCount);
+
   for (size_t ii = 0; ii < defaultCount; ++ii)
   {
-    wiFiMacs.push_back(std::string(wifi_macs[ii]));
-    flockLog.addLogLine("TARGETS", "  -->%s\r\n", wifi_macs[ii]);
+    wiFiMacs.insert(std::make_pair(wifiDefMacs[ii].prefix, wifiDefMacs[ii].name));
+    flockLog.addLogLine("TARGETS", "  -->%s - %s\r\n", wifiDefMacs[ii].prefix, wifiDefMacs[ii].name);
+    if (!(ii % 20))
+    {
+      flockLog.flushNow();
+    }
   }
 
   flockLog.addLogLine("TARGETS", "Finished adding %d default MAC match prefixes.\r\n", wiFiMacs.size());

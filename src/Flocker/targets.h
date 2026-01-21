@@ -1,7 +1,8 @@
 #ifndef TARGETS_H_
 #define TARGETS_H_
 
-#include <list>
+#include <map>
+#include "alloc.h"
 #include "scanner.h"
 
 enum wifi_match_t
@@ -30,7 +31,7 @@ public:
   int loadDefaultWiFiMacs();
   int getWiFiMacCount()  { return (wiFiMacs.size()); }
 
-  wifi_match_t isWiFiMatch(const found_wifi_t& w);
+  wifi_match_t isWiFiMatch(const found_wifi_t& w, utils::string& info);
   bt_match_t isBTMatch(const found_ble_t& b);
 
 private:
@@ -40,8 +41,8 @@ private:
   const char* readString(const char* prompt);
   bool saveAllFiles();
 
-  std::list<std::string> wiFiMacs;
-  std::list<std::string>::const_iterator citWiFiMacs;
+  std::map<const char*, const char*, cmp_const_char, psramAlloc<std::map<const char*, const char*>::value_type>> wiFiMacs;
+  std::map<const char*, const char*>::const_iterator citWiFiMacs;
 };
 
 #endif // TARGETS_H_

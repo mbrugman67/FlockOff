@@ -1,10 +1,10 @@
 #ifndef SCANNER_H_
 #define SCANNER_H_
 
-#include <list>
 #include <string>
 
 #include "Arduino.h"
+#include "alloc.h"
 
 #define SSID_LEN  32  // 802.11 max SSID length
 
@@ -16,7 +16,7 @@ enum wifi_pkt_t
 
 // structure to hold details about every device found; not just
 // Flock type things at this point (found by WiFi)
-struct __attribute__((packed)) found_wifi_t
+struct found_wifi_t
 {
   wifi_pkt_t type;
   uint8_t subtype;
@@ -36,10 +36,10 @@ struct found_ble_t
   uint8_t mac[6];
   int8_t rssi;
   uint32_t timestamp;
-  std::list<uint16_t> services16;
-  std::list<std::string> services128;
-  std::list<uint16_t> serviceData16;
-  std::list<std::string> serviceData128;
+  uint16_t services16;
+  uint16_t serviceData16;
+  utils::string services128;
+  utils::string serviceData128;
 };
 
 class SCANNER
