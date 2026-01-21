@@ -48,6 +48,12 @@ class surveyJson:
         satCount = self.getItem("SatelliteCount")
         version = self.getItem("DataVersion")
 
+        # if we haven't established GPS, set long/lat to zeroes
+        if longitude is None:
+            longitude = 0
+        if lattitude is None:
+            lattitude = 0
+
         if (
             notes == None
             or device == None
