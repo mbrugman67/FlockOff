@@ -69,7 +69,7 @@ bool setupCLI()
   Serial.printf(CLI_BOLD_RED "  | $$      | $$|  $$$$$$/|  $$$$$$$| $$ \\  $$      |  $$$$$$/| $$      | $$      \r\n");
   Serial.printf(CLI_BOLD_GRN "  |__/      |__/ \\______/  \\_______/|__/  \\__/       \\______/ |__/      |__/      \r\n");
 
-  Serial.printf(CLI_RESET CLI_BOLD "(c) 2025 M.Brugman\r\n\r\n" CLI_RESET);
+  Serial.printf(CLI_RESET CLI_BOLD "(c) 2025-2026 M.Brugman\r\n\r\n" CLI_RESET);
   Serial.printf("CLI Enabled.  'help' for help; <command -h> for help on that command\r\n");
 
   return (true);
