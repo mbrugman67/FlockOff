@@ -195,7 +195,7 @@ void onCriteria(EmbeddedCli* cli, char* args, void* context)
     else if (!strcmp("-x", cmd))
     {
       onStatus(cli, nullptr, nullptr);
-      utils::string test;
+      flk::string test;
       for (size_t ii = 0; ii < 5000; ++ii)
       {
         test += "abcdefghi";
@@ -400,8 +400,8 @@ void onClear(EmbeddedCli *cli, char *args, void *context)
 ******************************************************/
 void onLs(EmbeddedCli *cli, char *args, void *context)
 {
-  std::vector<utils::string>files;
-  std::vector<utils::string>::const_iterator filesCit;
+  std::vector<flk::string>files;
+  std::vector<flk::string>::const_iterator filesCit;
   bool dump = false;
 
   // call filesystem handler to populate all files and
@@ -699,7 +699,7 @@ void onStatus(EmbeddedCli* cli, char* args, void* context)
   Serial.printf(CLI_YEL "\tChip frequency " CLI_BOLD_GRN "%d MHz\r\n" CLI_RESET, ESP.getCpuFreqMHz());
   Serial.printf(CLI_YEL "\tCore count " CLI_BOLD_GRN "%d cores\r\n" CLI_RESET, ESP.getChipCores());
   Serial.printf(CLI_CYA "->GPS:\r\n" CLI_RESET);
- 
+
   if (gps.getFixQuality() > 0)
   {
     struct tm tm_;

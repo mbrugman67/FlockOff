@@ -16,7 +16,7 @@
 **********************************/
 #define FLOCKER_VERSION_MAJOR 0
 #define FLOCKER_VERSION_MINOR 9
-#define FLOCKER_VERSION_SUBMINOR 30
+#define FLOCKER_VERSION_SUBMINOR 90
 #define FLOCKER_BUILD_TIME __TIME__
 #define FLOCKER_BUILD_DATE __DATE__
 

@@ -21,12 +21,12 @@ bool TARGETS::begin()
   return (inputstr);
 }
 
-wifi_match_t TARGETS::isWiFiMatch(const found_wifi_t& w, utils::string& info)
+wifi_match_t TARGETS::isWiFiMatch(const found_wifi_t& w, flk::string& info)
 {
   char prefix[9] = {'\0'};
   char PREFIX[9] = {'\0'};
   strncpy(prefix, macToText(w.sourceAddr), 8);
-  
+
   for (uint8_t ii = 0; ii < 9; ++ii)
   {
     PREFIX[ii] = std::toupper(prefix[ii]);
@@ -36,7 +36,7 @@ wifi_match_t TARGETS::isWiFiMatch(const found_wifi_t& w, utils::string& info)
 
   if (citWiFiMacs != wiFiMacs.end())
   {
-    info = utils::string(citWiFiMacs->second);
+    info = flk::string(citWiFiMacs->second);
     return (WIFI_MATCH_MAC);
   }
 
@@ -154,8 +154,3 @@ const char* TARGETS::readString(const char* prompt)
 
   return (inputstr);
 }
-
-
-
-
-

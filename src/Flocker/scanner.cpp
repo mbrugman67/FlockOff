@@ -130,8 +130,8 @@ static MD5Builder hasher;
 static NimBLEScan* btScanner = nullptr;
 static uint8_t md5sum[16];
 
-static std::map<uint32_t, found_wifi_t, std::less<>, psramAlloc<std::map<uint32_t, found_wifi_t>::value_type>> wifiDevices;
-static std::map<uint32_t, found_ble_t, std::less<>, psramAlloc<std::map<uint32_t, found_ble_t>::value_type>> bleDevices;
+static std::map<uint32_t, found_wifi_t, std::less<>, flk::psramAlloc<std::map<uint32_t, found_wifi_t>::value_type>> wifiDevices;
+static std::map<uint32_t, found_ble_t, std::less<>, flk::psramAlloc<std::map<uint32_t, found_ble_t>::value_type>> bleDevices;
 
 static std::map<uint32_t, found_wifi_t>::const_iterator citWifiDevices;
 static std::map<uint32_t, found_ble_t>::const_iterator citBleDevices;
@@ -149,7 +149,7 @@ static bool loggerOK = false;
 *****************************************************
 * Returns match type on WiFi device match
 *****************************************************/
-wifi_match_t wiFiMatch(const found_wifi_t& w, utils::string& info)
+wifi_match_t wiFiMatch(const found_wifi_t& w, flk::string& info)
 {
   return (scanTargets.isWiFiMatch(w, info));
 }
@@ -259,12 +259,12 @@ void wifi_pkt_hndlr(void* buff, wifi_promiscuous_pkt_type_t type)
     memcpy(wifi.destAddr, hdr->addr1, 6);     //
     wifi.timestamp = millis();                // system timestamp (used for aging)
 
-    utils::string matchInfo;
+    flk::string matchInfo;
     wifi_match_t match = wiFiMatch(wifi, matchInfo);
 
     if (surveying || match != WIFI_MATCH_NONE)
     {
-      utils::string seed;
+      flk::string seed;
       seed = macToText(wifi.sourceAddr);
       seed += wifiPktTypeToText(wifi.type);
       seed += wifi.ssid;
@@ -291,16 +291,16 @@ void wifi_pkt_hndlr(void* buff, wifi_promiscuous_pkt_type_t type)
           {
             case WIFI_MATCH_MAC:
             {
-              Serial.printf(CLI_BOLD_RED "ALERT!" CLI_RESET CLI_YEL " %s Matched MAC %s (%s)\r\n" CLI_RESET, 
+              Serial.printf(CLI_BOLD_RED "ALERT!" CLI_RESET CLI_YEL " %s Matched MAC %s (%s)\r\n" CLI_RESET,
                   gps.getTimeLocationString(), macToText(wifi.sourceAddr), matchInfo.c_str());
-              scanLog.addLogLine("WIFI", "%s; Matched mac %s\r\n", gps.getTimeLocationString(), macToText(wifi.sourceAddr)); 
+              scanLog.addLogLine("WIFI", "%s; Matched mac %s\r\n", gps.getTimeLocationString(), macToText(wifi.sourceAddr));
             }  break;
 
-            case WIFI_MATCH_SSID: 
+            case WIFI_MATCH_SSID:
             {
-              Serial.printf(CLI_BOLD_RED "ALERT!" CLI_RESET CLI_YEL " %s Matched SSID %s (%s)\r\n" CLI_RESET, 
+              Serial.printf(CLI_BOLD_RED "ALERT!" CLI_RESET CLI_YEL " %s Matched SSID %s (%s)\r\n" CLI_RESET,
                   gps.getTimeLocationString(), wifi.ssid, matchInfo.c_str());
-              scanLog.addLogLine("WIFI", "%s, Matched on ssid %s\r\n", gps.getTimeLocationString(), wifi.ssid); 
+              scanLog.addLogLine("WIFI", "%s, Matched on ssid %s\r\n", gps.getTimeLocationString(), wifi.ssid);
             }  break;
           }
         }
@@ -406,7 +406,7 @@ class btAdvertisedCBs : public NimBLEScanCallbacks
 
     // kinda hokey, the key are the first 4 bytes of the MD5 hash of the struct.  Shouldn't be collisions....
     uint32_t key = ((uint32_t)md5sum[0] << 24) | ((uint32_t)md5sum[1] << 16) |
-                    ((uint32_t)md5sum[2] << 8) | ((uint32_t)md5sum[3]);    
+                    ((uint32_t)md5sum[2] << 8) | ((uint32_t)md5sum[3]);
 
     // have we seen this one already?
     citBleDevices = bleDevices.find(key);
@@ -565,7 +565,7 @@ void SCANNER::update()
                 {
                   if (loggerOK && flockCfg.getScanLogEnabledState())
                   {
-                    Serial.printf(CLI_CYA "%s; Removed timed-out WiFi MAC %s (SSID %s)\r\n" CLI_RESET, 
+                    Serial.printf(CLI_CYA "%s; Removed timed-out WiFi MAC %s (SSID %s)\r\n" CLI_RESET,
                         gps.getTimeLocationString(), macToText(citWifiDevices->second.sourceAddr), citWifiDevices->second.ssid);
                     scanLog.addLogLine("WIFI", "Removed timedout mac %s\r\n", macToText(citWifiDevices->second.sourceAddr));
                   }
@@ -605,6 +605,11 @@ void SCANNER::update()
             Serial.printf(CLI_BOLD_RED "\r\nStopping un-started scan!\r\n" CLI_RESET);
             stopScanning();
         }
+    }
+
+    if (loggerOK)
+    {
+        scanLog.update();
     }
 }
 

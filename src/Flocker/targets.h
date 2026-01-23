@@ -31,7 +31,7 @@ public:
   int loadDefaultWiFiMacs();
   int getWiFiMacCount()  { return (wiFiMacs.size()); }
 
-  wifi_match_t isWiFiMatch(const found_wifi_t& w, utils::string& info);
+  wifi_match_t isWiFiMatch(const found_wifi_t& w, flk::string& info);
   bt_match_t isBTMatch(const found_ble_t& b);
 
 private:
@@ -41,7 +41,7 @@ private:
   const char* readString(const char* prompt);
   bool saveAllFiles();
 
-  std::map<const char*, const char*, cmp_const_char, psramAlloc<std::map<const char*, const char*>::value_type>> wiFiMacs;
+  std::map<const char*, const char*, flk::cmp_const_char, flk::psramAlloc<std::map<const char*, const char*>::value_type>> wiFiMacs;
   std::map<const char*, const char*>::const_iterator citWiFiMacs;
 };
 

@@ -46,18 +46,21 @@ There is a CLI available at the USB port at 115200/8N1.  The CLI uses ANSII esca
 ```  
 Flock Off $>help 
 Use 'command -h' for detailed help on each command
-	help - Print list of commands
-	survey - Perform Wifi survey
-	clear - Clear the console
-	reset - Reboot the device
-	ls - List files
-	rm - Delete file
-	write - Write test file
-	mv - Rename file
-	cp - Copy file
-	cat - Cat file
-	status - Get system status
-	config - Get/Set config values
+        help - Print list of commands
+        version - Display firmware version
+        survey - Perform WiFi survey
+        scan - Start continuous scan
+        clear - Clear the console
+        reset - Reboot the device
+        ls - List files
+        rm - Delete file
+        write - Write test file
+        mv - Rename file
+        cp - Copy file
+        cat - Cat file
+        status - Get system status
+        config - Get/Set config values
+        criteria - Get/Set target matching criteria
 ```  
 Passing a `-h` to any command will show help for that command, for example:
 ```  
@@ -66,33 +69,35 @@ survey [OPTION]
 Perform a WiFi and/or Bluetooth survey.  Displays all results, not just those that match scan criteria.
 
   -i <INTERVAL>   interval in milliseconds to scan each WiFi channel
-  -w              scan WiFi for broadcasters
-  -b              scan for Bluetooth broadcasters
-  -f <FILENAME>   save results to FILENAME
-  -j <NOTES>      save results as JSON, with NOTES added for reference
+  -f <FILENAME>   save results to FILENAME in JSON format
+  -n <NOTES>      add NOTES added for reference
 
-If neither the -b or -w parameter is set, a survey of both will be performed.  If data is saved to file, but the -j parameter is not supplied, the data will be in CSV format.
+If the -f parameter is not passed, JSON results will be displayed in the terminal.
 ```  
 There is a flat filesystem included (flat, meaning no directories; all files are in a single directory). Basic Linux-type file management commands are available, but note that there is no 'globbing'; all filenames must be directly entered.  Examples:
 ```  
-Flock Off $>ls 
-	   208  config.bak
-	   207  config.json
-	   306  survey.00.json
-	  3840  survey.01.json
-	   408  system.log
+      371  01/22/26  18:25:46  autoscan.1.log
+      163  01/22/26  18:42:01  autoscan.log
+      208  12/31/69  18:02:32  config.json
+    11300  01/22/26  18:26:04  system.1.log
+    11107  01/22/26  18:25:30  system.2.log
+    11347  01/22/26  18:43:37  system.log
 Flock Off $>cat config.json
-{"deviceName":"SuperSecret Sniffer","timeZone":"CST6CDT,M3.2.0,M11.1.0","LEDBrightness":128,"debugEnabled":true,"debugLogRollCount":3,"minRSSI":-85,"WifiAPs":["flock","fs ext Battery","penguin","pigvision"]}
+{"deviceName":"Super Secret Sniffer","timeZone":"CST6CDT,M3.2.0,M11.1.0","LEDBrightness":100,"debugEnabled":true,"debugLogRollCount":3,}
+Flock Off $>
 ```  
 Configuration is menu-driven:
 ```  
 Flock Off $>config 
-1) Set device name (SuperSecret Sniffer)
+1) Set device name (Super Secret Sniffer)
 2) Set timezone (CST6CDT,M3.2.0,M11.1.0)
-3) Set max LED brightness (128)
+3) Set max LED brightness (100)
 4) Set debug logging (enabled)
-5) Set debug file rolling count (3)
-6) Set minimum RSSI (-85)
+5) Set scan logging (enabled)
+6) Set debug file rolling count (3)
+7) Set scan file rolling count (10)
+8) Set minimum RSSI (-90)
+9) Set minimum alert time (60)
 Select number of item to change or 'x' to exit with no changes: 
 ```  
 ## LEDs
@@ -108,7 +113,44 @@ What do the LEDs do?
 | color | description |  
 |---|---|  
 | Blue fade alert | Survey in progress | 
-| Red fade alert | Target device in range |  
+| Steady blue | Continuous scan in progress |  
+| Alternating blue/purple | Continuous scan detecting target |  
+
+## Continuous scans
+The default action for the device is to continuously scan for targets in the area.  There are two ways to start a scan:
++ Power up the device, if no input is seen on the CLI in the first 5 seconds, continuous scanning will automatically begin
++ Using the `scan` command to start continuous scanning
+
+### Stopping a scan
+Press any key will connected to the serial port to stop the scan
+
+### Scan logging and information
+The RF LED will glow continuously blue when a scan is running.  If a target is seen, the LED will alternate blue/purple.  As targets are seen and "disappear" they will be listed in the serial terminal.  If enabled in configuration, the data will also be saved in rolling files in the filesystem - this allows "headless" operation with the ability to look at the results later.
+
+Sample output in the serial terminal:
+```  
+Flock Off $>Starting scan - press any key to stop
+ALERT! 01/23/26 01:03:13 42.8XXXX -87.9XXXX Matched MAC 14:6b:9c:e3:7f:3b (SHENZHEN BILIAN ELECTRONIC CO.，LTD)
+```  
+
+Sample scan log:  
+```  
+Flock Off $>ls 
+      267  01/22/26  19:02:59  autoscan.1.log
+      163  01/22/26  18:42:01  autoscan.2.log
+      371  01/22/26  18:25:46  autoscan.3.log                                             
+      267  01/22/26  19:04:01  autoscan.log                                               
+      208  12/31/69  18:02:32  config.json                                                
+     4557  01/22/26  18:50:13  survey.example.json                                        
+    12384  01/22/26  19:03:01  system.1.log                                               
+    11300  01/22/26  18:26:04  system.2.log
+    11215  01/22/26  19:04:01  system.log
+Flock Off $>cat autoscan.log
+[00007907] 01/22/26 19:03:13 LOGGER::Started logger
+[00007950] 01/22/26 19:03:13 WIFI::01/23/26 01:03:13 42.8XXXX -87.9XXXX; Matched mac 14:6b:9c:e3:7f:3b
+[00055504] 01/22/26 19:04:01 SCAN::Ending scan, closing log.
+[00055516] 01/22/26 19:04:01 LOG::Closing log!
+```  
 
 ## Performing a site survey
 A survey will report all WiFi and BTLE broadcasters in range.  Why perform a survey?  Maybe there's a known device that isn't triggering alerts, and we want to characterize it (find MAC address, if BT, see if there are any service UUIDs it's broadcasting).
@@ -118,42 +160,38 @@ Basic steps:
 2) Use the `status` command to be sure GPS has gotten a fix and that the data looks correct (GPS coordinates masked by me for privacy):
 ``` 
 Flock Off $>status 
+->Hardware:
+        Chip model ESP32-S3
+        Chip frequency 240 MHz
+        Core count 2 cores
 ->GPS:
-	GPS current coordinates are 42.XXXXX, -87.XXXXX
-	GPS current time/date (gmt) is 21:51:54 11/15/2025
-	Number of satellites currently tracked: 7
+        GPS current coordinates are 42.8XXXX, -87.9XXXX
+        GPS current time/date (gmt) is 00:47:52 1/23/2026
+        Number of satellites currently tracked: 9
 ->Filesystem:
-	Total capacity 4194304 bytes, 16384 used (4080 KiB free)
+        Total capacity 4194304bytes, 53248 used (4044 KiB free)
 ->Memories:
-	Internal total heap 325156 bytes, 88340 used (231 KiB free)
-	PSRAM total heap 8388608 bytes, 24688 used (8192 KiB free)
+        Internal total heap 324436 bytes, 88536 used (230 KiB free)
+        PSRAM total heap 8388608 bytes, 58280 used (8192 KiB free)
 ->Wall clock:
-	Current wall clock time is Mon, 15 Dec 2025 15:51:54 -0600
-	Timezone is set to CST6CDT,M3.2.0,M11.1.0
+        Current wall clock time is Thu, 22 Jan 2026 18:47:51 -0600
+        Timezone is set to CST6CDT,M3.2.0,M11.1.0
 ```  
 3) Use the `survey` command to start the survey.  Parameters are:
    + `-i INTERVAL` defines how much time (milliseconds) to spend on each WiFi channel
-   + `-w` for WiFi only, `-b` for BTLE only (or neither for both)
-   + `-j NOTES` to save the results in a JSON file, with survey notes set to `NOTES`
+   + `-n NOTES` to save the results in a JSON file, with survey notes set to `NOTES`
    + `-f FILENAME` to save results
 ```  
-Flock Off $>survey -i 2000 -j 'Example survey' -f survey.example.json
-Survey starting.
-Starting WiFi.
-Setting channel 1...2...3...4...5...6...7...8...9...10...11...12...13...36...40...44...48...149...153...157...161...165
-WiFi done.
-Starting BLE
-SCANNER::stopBLE() - scanner was non-null
-BLE Done, survey complete, found 21 devices
-Found 33 devices:
-
-Saving survey results to survey.example.json, format JSON
-Wrote 4371 bytes to file
+Flock Off $>survey -i 2000 -n 'Example survey' -f survey.example.json
+Survey starting
+Survey done, found 16 WiFi devices, 13 Bluetooth devices.
+Saving survey results to survey.example.json
+Wrote 4557 bytes to file
 ```  
-This example survey found 12 WiFi devices (or channels on devices), and 21 BTLE devices.  The data in the JSON file looks like this (truncated): 
+This example survey found 16 WiFi devices and 13 BTLE devices.  The data in the JSON file looks like this:  
 ```
 Flock Off $>cat survey.example.json
-{"SurveyNotes":"'Example","LocationLongLat":[-87.94199,42.8945],"SatelliteCount":8,"DateTime":"2025-12-15 15:56:52","Timezone":"CST6CDT,M3.2.0,M11.1.0","WiFiDevices":[{"Method":"WiFi","Subtype":"beacon","BSSID":"b2:28:aa:1c:0a:29","Channel":2,"SSID":"flu","RSSSI":-51},{"Method":"WiFi","Subtype":"beacon","BSSID":"b2:28:aa:1c:0a:2a","Channel":1,"SSID":"flu_IoT","RSSSI":-52},{"Method":"WiFi","Subtype":"beacon","BSSID":"b2:28:aa:1c:0a:2a","Channel":2,"SSID":"flu_IoT","RSSSI":-53},{"Method":"WiFi","Subtype":"probe response","BSSID":"b2:28:aa:1c:0a:2a","Channel":2,"SSID":"flu_IoT","RSSSI":-54},{"Method":"WiFi","Subtype":"beacon","BSSID":"a0:36:bc:db:ca:a0","Channel":12,"SSID":"virus","RSSSI":-52},
+{"SurveyNotes":"'Example survey","Device":"Super Secret Sniffer","LocationLongLat":[-87.9XXXX,42.8XXXX],"SatelliteCount":9,"DateTime":"2026-01-22 18:50:13","Timezone":"CST6CDT,M3.2.0,M11.1.0","DataVersion":2,"WiFiDevices":[{"Method":"WiFi","Type":"Data","Subtype":"ND (null no data)","SSID":"","SourceAddr":"4a:43:76:15:87:dd","DestAddr":"a0:36:bc:db:ca:a4","Channel":10,"RSSI":-20},{"Method":"WiFi","Type":"Management","Subtype":"beacon","SSID":"Open Wheel","SourceAddr":"08:36:c9:ed:b8:65","DestAddr":"ff:ff:ff:ff:ff:ff","Channel":4,"RSSI":-87},{"Method":"WiFi","Type":"Management","Subtype":"beacon","SSID":"NETGEAR05-Guest","SourceAddr":"c2:18:65:d2:d2:b2","DestAddr":"ff:ff:ff:ff:ff:ff","Channel":2,"RSSI":-87},{"Method":"WiFi","Type":"Data","Subtype":"Data","SSID":"","SourceAddr":"b2:28:aa:1c:0a:2a","DestAddr":"01:80:c2:00:00:00","Channel":1,"RSSI":-63},{"Method":"WiFi","Type":"Management","Subtype":"beacon","SSID":"flu","SourceAddr":"b2:28:aa:1c:0a:29","DestAddr":"ff:ff:ff:ff:ff:ff","Channel":1,"RSSI":-63},{"Method":"WiFi","Type":"Data","Subtype":"Data","SSID":"","SourceAddr":"a0:36:bc:db:ca:a0","DestAddr":"01:80:c2:00:00:00","Channel":6,"RSSI":-45},{"Method":"WiFi","Type":"Management","Subtype":"beacon","SSID":"virus","SourceAddr":"a0:36:bc:db:ca:a0","DestAddr":"ff:ff:ff:ff:ff:ff","Channel":6,"RSSI":-45},{"Method":"WiFi","Type":"Management","Subtype":"beacon","SSID":"flu_IoT","SourceAddr":"b2:28:aa:1c:0a:2a","DestAddr":"ff:ff:ff:ff:ff:ff","Channel":1,"RSSI":-64},{"Method":"WiFi","Type":"Data","Subtype":"QoS Data","SSID":"","SourceAddr":"b2:28:aa:1c:0a:29","DestAddr":"e0:75:26:a2:98:cc","Channel":1,"RSSI":-63},{"Method":"WiFi","Type":"Data","Subtype":"QoS Data","SSID":"","SourceAddr":"14:6b:9c:e3:7f:3b","DestAddr":"b2:28:aa:1c:0a:29","Channel":1,"RSSI":-54},{"Method":"WiFi","Type":"Data","Subtype":"QoS Data","SSID":"","SourceAddr":"cc:db:a7:93:ec:2c","DestAddr":"a0:36:bc:db:ca:a0","Channel":7,"RSSI":-71},{"Method":"WiFi","Type":"Management","Subtype":"beacon","SSID":"<HIDDEN>","SourceAddr":"cc:28:aa:1c:0a:28","DestAddr":"ff:ff:ff:ff:ff:ff","Channel":1,"RSSI":-63},{"Method":"WiFi","Type":"Data","Subtype":"Data","SSID":"","SourceAddr":"a0:8a:06:6f:ec:fa","DestAddr":"01:00:5e:00:00:07","Channel":6,"RSSI":-84},{"Method":"WiFi","Type":"Data","Subtype":"Data","SSID":"","SourceAddr":"cc:28:aa:1c:0a:28","DestAddr":"01:80:c2:00:00:00","Channel":1,"RSSI":-64},{"Method":"WiFi","Type":"Data","Subtype":"ND (null no data)","SSID":"","SourceAddr":"e0:75:26:a2:98:cc","DestAddr":"b2:28:aa:1c:0a:29","Channel":1,"RSSI":-76},{"Method":"WiFi","Type":"Management","Subtype":"beacon","SSID":"NETGEAR05","SourceAddr":"94:18:65:d2:d2:b1","DestAddr":"ff:ff:ff:ff:ff:ff","Channel":2,"RSSI":-90}],"BLEDevices":[{"Method":"BTLE","Name":"N00DM","MAC":"c7:06:90:c0:c4:6c","RSSI":-84,"UUID16bit":[65199],"UUID128bit":[],"DataUUID16bit":[65199],"DataUUID128bit":[]},{"Method":"BTLE","Name":"OfficeJet 5200 series","MAC":"86:a9:3e:bc:5c:c9","RSSI":-86,"UUID16bit":[65144],"UUID128bit":[],"DataUUID16bit":[],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"47:d1:13:3a:79:de","RSSI":-70,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"6b:7a:e6:9b:f5:d2","RSSI":-65,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"66:95:29:56:70:e9","RSSI":-69,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"d4:0a:5d:22:d4:e9","RSSI":-61,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"63:13:27:3d:4d:22","RSSI":-62,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"1d:2a:e8:54:5e:f4","RSSI":-69,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[65267],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"a8:51:ab:c6:11:25","RSSI":-75,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"3c:5c:ae:fd:ff:0d","RSSI":-53,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[64753],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"79:d2:f7:d7:5d:22","RSSI":-75,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[],"DataUUID128bit":[]},{"Method":"BTLE","Name":"","MAC":"32:2b:12:15:81:9a","RSSI":-51,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[64753],"DataUUID128bit":[]},{"Method":"BTLE","Name":"[TV] Samsung 8 Series (65)","MAC":"8c:ea:48:a7:2c:03","RSSI":-72,"UUID16bit":[],"UUID128bit":[],"DataUUID16bit":[],"DataUUID128bit":[]}]}
 ```  
 ### Interpreting survey results
 The included python scripts can pull the survey data from the device and populate some database tables (sqlite3) for analysis.

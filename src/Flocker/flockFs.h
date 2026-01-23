@@ -17,7 +17,7 @@ public:
   void getInfo(size_t* cap, size_t* used);
   void format();
 
-  size_t list(std::vector<utils::string>& files);
+  size_t list(std::vector<flk::string>& files);
   ssize_t readFile(const char* path, uint8_t* buff, size_t len);
   ssize_t writeFile(const char* path, const uint8_t* buff, size_t len);
   ssize_t appendFile(const char* path, const uint8_t* buff, size_t len);

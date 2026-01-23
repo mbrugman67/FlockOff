@@ -38,8 +38,8 @@ struct found_ble_t
   uint32_t timestamp;
   uint16_t services16;
   uint16_t serviceData16;
-  utils::string services128;
-  utils::string serviceData128;
+  flk::string services128;
+  flk::string serviceData128;
 };
 
 class SCANNER

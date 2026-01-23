@@ -35,7 +35,7 @@ void MBFS::format()
 * list files in the filesystem.  Filenames are
 * returned in a std::vector
 **********************************************/
-size_t MBFS::list(std::vector<utils::string>& files)
+size_t MBFS::list(std::vector<flk::string>& files)
 {
     // all files are in the root directory; i.e. flat
     File root = LittleFS.open("/");
@@ -45,7 +45,7 @@ size_t MBFS::list(std::vector<utils::string>& files)
 
     while(file)
     {
-        files.push_back(utils::string(file.name()));
+        files.push_back(flk::string(file.name()));
         file = root.openNextFile();
     }
 
