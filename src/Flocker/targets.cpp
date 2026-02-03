@@ -40,6 +40,19 @@ wifi_match_t TARGETS::isWiFiMatch(const found_wifi_t& w, flk::string& info)
     return (WIFI_MATCH_MAC);
   }
 
+  if (strlen(w.ssid))
+  {
+    size_t len = sizeof(wiFiDefNames) / sizeof(wiFiDefNames[0]);
+    for (size_t ii = 0; ii < len; ++ii)
+    {
+      if (strcasestr(wiFiDefNames[ii], w.ssid))
+      {
+        info = flk::string(wiFiDefNames[ii]);
+        return (WIFI_MATCH_SSID);
+      }
+    }
+  }
+
   return (WIFI_MATCH_NONE);
 }
 

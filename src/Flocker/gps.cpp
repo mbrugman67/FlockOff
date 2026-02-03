@@ -143,7 +143,10 @@ const char* NMEAGPS::getTimeLocationString()
   static char ret[128] = {'\0'};
   static char tim[32] = {'\0'};
 
-  strftime(tim, 63, "%D %T", &localtm);
+  time_t t = time(NULL);
+  tm *tmp;
+  tmp = localtime(&t);
+  strftime(tim, 63, "%D %T", tmp);
   snprintf(ret, 127, "%s %0.5f %0.5f", tim, latitude, longitude);
   return (ret);
 }

@@ -126,15 +126,14 @@ const size_t channelCount = sizeof(channels) / sizeof(channels[0]);
 static uint16_t channelInx = 0;
 static bool surveying = false;
 static bool continuousScanning = false;
-static MD5Builder hasher;
 static NimBLEScan* btScanner = nullptr;
 static uint8_t md5sum[16];
 
-static std::map<uint32_t, found_wifi_t, std::less<>, flk::psramAlloc<std::map<uint32_t, found_wifi_t>::value_type>> wifiDevices;
-static std::map<uint32_t, found_ble_t, std::less<>, flk::psramAlloc<std::map<uint32_t, found_ble_t>::value_type>> bleDevices;
+static std::map<flk::string, found_wifi_t, std::less<>, flk::psramAlloc<std::map<flk::string, found_wifi_t>::value_type>> wifiDevices;
+static std::map<flk::string, found_ble_t, std::less<>, flk::psramAlloc<std::map<flk::string, found_ble_t>::value_type>> bleDevices;
 
-static std::map<uint32_t, found_wifi_t>::const_iterator citWifiDevices;
-static std::map<uint32_t, found_ble_t>::const_iterator citBleDevices;
+static std::map<flk::string, found_wifi_t>::iterator itWifiDevices;
+static std::map<flk::string, found_ble_t>::iterator itBleDevices;
 
 void reverseBytes(uint8_t* data, size_t len);
 const char* wifiPktTypeToText(enum wifi_pkt_t t);
@@ -143,16 +142,6 @@ const char* WiFiDataSubtypeToText(uint8_t stype);
 
 static FLOGGER scanLog;
 static bool loggerOK = false;
-
-/****************************************************
-* wiFiMatch()
-*****************************************************
-* Returns match type on WiFi device match
-*****************************************************/
-wifi_match_t wiFiMatch(const found_wifi_t& w, flk::string& info)
-{
-  return (scanTargets.isWiFiMatch(w, info));
-}
 
 /*************************************************
 * Promiscuous mode packet callback handler
@@ -260,50 +249,50 @@ void wifi_pkt_hndlr(void* buff, wifi_promiscuous_pkt_type_t type)
     wifi.timestamp = millis();                // system timestamp (used for aging)
 
     flk::string matchInfo;
-    wifi_match_t match = wiFiMatch(wifi, matchInfo);
+    wifi_match_t match = scanTargets.isWiFiMatch(wifi, matchInfo);
 
     if (surveying || match != WIFI_MATCH_NONE)
     {
-      flk::string seed;
-      seed = macToText(wifi.sourceAddr);
-      seed += wifiPktTypeToText(wifi.type);
-      seed += wifi.ssid;
-
-      hasher.begin();
-      hasher.add((uint8_t*)seed.c_str(), seed.size());
-      hasher.calculate();
-      hasher.getBytes(md5sum);
-
-      // kinda hokey, the key are the first 4 bytes of the MD5 hash of the struct.  Shouldn't be collisions....
-      uint32_t key = ((uint32_t)md5sum[0] << 24) | ((uint32_t)md5sum[1] << 16) |
-                      ((uint32_t)md5sum[2] << 8) | ((uint32_t)md5sum[3]);
+      // key into the 
+      flk::string key = flk::string(macToText(wifi.sourceAddr));
 
       // have we seen this one already?
-      citWifiDevices = wifiDevices.find(key);
-      if (citWifiDevices == wifiDevices.end())
+      itWifiDevices = wifiDevices.find(key);
+      if (itWifiDevices == wifiDevices.end())
       {
         // no?  then add it
         wifiDevices[key] = wifi;
 
-        if (!surveying && loggerOK && flockCfg.getScanLogEnabledState())
+        if (!surveying)
         {
+          flk::string message = flk::string(gps.getTimeLocationString());
+          message += " Matched on WiFi ";
+
           switch (match)
           {
             case WIFI_MATCH_MAC:
             {
-              Serial.printf(CLI_BOLD_RED "ALERT!" CLI_RESET CLI_YEL " %s Matched MAC %s (%s)\r\n" CLI_RESET,
-                  gps.getTimeLocationString(), macToText(wifi.sourceAddr), matchInfo.c_str());
-              scanLog.addLogLine("WIFI", "%s; Matched mac %s\r\n", gps.getTimeLocationString(), macToText(wifi.sourceAddr));
+              message = message + "MAC " + macToText(wifi.sourceAddr) + " (" + matchInfo + ")\r\n";
             }  break;
-
+            
             case WIFI_MATCH_SSID:
             {
-              Serial.printf(CLI_BOLD_RED "ALERT!" CLI_RESET CLI_YEL " %s Matched SSID %s (%s)\r\n" CLI_RESET,
-                  gps.getTimeLocationString(), wifi.ssid, matchInfo.c_str());
-              scanLog.addLogLine("WIFI", "%s, Matched on ssid %s\r\n", gps.getTimeLocationString(), wifi.ssid);
+              message = message + "SSID " + wifi.ssid + " (" + matchInfo + ")\r\n";
             }  break;
           }
-        }
+
+          Serial.printf(CLI_BOLD_RED "ALERT!" CLI_RESET CLI_YEL "%s" CLI_RESET, message.c_str());
+
+          if (loggerOK && flockCfg.getScanLogEnabledState())
+          {
+            scanLog.addLogLine("WIFI", "%s", message.c_str());
+          }
+        } // not surveying (message & logging output about match type + info)
+      } // device does not exist in map
+      else
+      {
+        // update timestamp to show we still see this device
+        itWifiDevices->second.timestamp = millis();
       }
     } // packet is a match! (or we are doing a survey)
   } // adding good packet to map
@@ -399,21 +388,19 @@ class btAdvertisedCBs : public NimBLEScanCallbacks
       }
     }
 
-    hasher.begin();
-    hasher.add(btDevice.mac, 6);
-    hasher.calculate();
-    hasher.getBytes(md5sum);
-
-    // kinda hokey, the key are the first 4 bytes of the MD5 hash of the struct.  Shouldn't be collisions....
-    uint32_t key = ((uint32_t)md5sum[0] << 24) | ((uint32_t)md5sum[1] << 16) |
-                    ((uint32_t)md5sum[2] << 8) | ((uint32_t)md5sum[3]);
+    flk::string key = flk::string(macToText(btDevice.mac));
 
     // have we seen this one already?
-    citBleDevices = bleDevices.find(key);
-    if (citBleDevices == bleDevices.end())
+    itBleDevices = bleDevices.find(key);
+    if (itBleDevices == bleDevices.end())
     {
       // no?  then add it
       bleDevices[key] = btDevice;
+    }
+    else
+    {
+      // update timestamp, 'cuz we still see it
+      itBleDevices->second.timestamp = millis();
     }
   }
 
@@ -559,17 +546,19 @@ void SCANNER::update()
             else
             {
               // remove found devices when they timeout
-              for (citWifiDevices = wifiDevices.begin(); citWifiDevices != wifiDevices.end(); ++citWifiDevices)
+              for (itWifiDevices = wifiDevices.begin(); itWifiDevices != wifiDevices.end(); ++itWifiDevices)
               {
-                if (millis() > (citWifiDevices->second.timestamp + (flockCfg.getScanHoldTime() * 1000)))
+                if (millis() > (itWifiDevices->second.timestamp + (flockCfg.getScanHoldTime() * 1000)))
                 {
+                  Serial.printf(CLI_CYA "%s; Removed timed-out WiFi, MAC %s, SSID %s\r\n" CLI_RESET,
+                        gps.getTimeLocationString(), macToText(itWifiDevices->second.sourceAddr), itWifiDevices->second.ssid);
+                  
                   if (loggerOK && flockCfg.getScanLogEnabledState())
                   {
-                    Serial.printf(CLI_CYA "%s; Removed timed-out WiFi MAC %s (SSID %s)\r\n" CLI_RESET,
-                        gps.getTimeLocationString(), macToText(citWifiDevices->second.sourceAddr), citWifiDevices->second.ssid);
-                    scanLog.addLogLine("WIFI", "Removed timedout mac %s\r\n", macToText(citWifiDevices->second.sourceAddr));
+                    scanLog.addLogLine("WIFI", "Removed timed-out WiFi, MAC %s, SSID %s\r\n", 
+                          macToText(itWifiDevices->second.sourceAddr), itWifiDevices->second.ssid);
                   }
-                  wifiDevices.erase(citWifiDevices->first);
+                  wifiDevices.erase(itWifiDevices->first);
                 }
 
                 if (wifiDevices.size())
@@ -746,60 +735,60 @@ void SCANNER::postSurveyActivities()
     JsonArray devs = sur["WiFiDevices"].to<JsonArray>();
     JsonDocument dev;
 
-    for (citWifiDevices = wifiDevices.begin(); citWifiDevices != wifiDevices.end(); ++citWifiDevices)
+    for (itWifiDevices = wifiDevices.begin(); itWifiDevices != wifiDevices.end(); ++itWifiDevices)
     {
         dev.clear();
         dev["Method"] = discoveryToText(WIFI_DISCOVERY);
-        dev["Type"] = wifiPktTypeToText(citWifiDevices->second.type);
-        if (citWifiDevices->second.type == wifi_management)
+        dev["Type"] = wifiPktTypeToText(itWifiDevices->second.type);
+        if (itWifiDevices->second.type == wifi_management)
         {
-            dev["Subtype"] = WiFiMgmtSubtypeToText(citWifiDevices->second.subtype);
+            dev["Subtype"] = WiFiMgmtSubtypeToText(itWifiDevices->second.subtype);
         }
         else
         {
-            dev["Subtype"] = WiFiDataSubtypeToText(citWifiDevices->second.subtype);
+            dev["Subtype"] = WiFiDataSubtypeToText(itWifiDevices->second.subtype);
         }
-        dev["SSID"] = citWifiDevices->second.ssid;
-        dev["SourceAddr"] = macToText(citWifiDevices->second.sourceAddr);
-        dev["DestAddr"] = macToText(citWifiDevices->second.destAddr);
-        dev["Channel"] = citWifiDevices->second.channel;
-        dev["RSSI"] = citWifiDevices->second.rssi;
+        dev["SSID"] = itWifiDevices->second.ssid;
+        dev["SourceAddr"] = macToText(itWifiDevices->second.sourceAddr);
+        dev["DestAddr"] = macToText(itWifiDevices->second.destAddr);
+        dev["Channel"] = itWifiDevices->second.channel;
+        dev["RSSI"] = itWifiDevices->second.rssi;
 
         devs.add(dev);
     } // adding WiFi devices
 
     JsonArray btdevs = sur["BLEDevices"].to<JsonArray>();
 
-    for (citBleDevices = bleDevices.begin(); citBleDevices != bleDevices.end(); ++citBleDevices)
+    for (itBleDevices = bleDevices.begin(); itBleDevices != bleDevices.end(); ++itBleDevices)
     {
         dev.clear();
         dev["Method"] = discoveryToText(BTLE_DISCOVERY);
-        dev["Name"] = citBleDevices->second.name;
-        dev["MAC"] = macToText(citBleDevices->second.mac);
-        dev["RSSI"] = citBleDevices->second.rssi;
+        dev["Name"] = itBleDevices->second.name;
+        dev["MAC"] = macToText(itBleDevices->second.mac);
+        dev["RSSI"] = itBleDevices->second.rssi;
 
         JsonArray uid16 = dev["UUID16bit"].to<JsonArray>();
-        if (citBleDevices->second.services16)
+        if (itBleDevices->second.services16)
         {
-          uid16.add(citBleDevices->second.services16);
+          uid16.add(itBleDevices->second.services16);
         }
 
         JsonArray uid128 = dev["UUID128bit"].to<JsonArray>();
-        if (citBleDevices->second.services128.size())
+        if (itBleDevices->second.services128.size())
         {
-          uid128.add(citBleDevices->second.services128.c_str());
+          uid128.add(itBleDevices->second.services128.c_str());
         }
 
         JsonArray duid16 = dev["DataUUID16bit"].to<JsonArray>();
-        if (citBleDevices->second.serviceData16)
+        if (itBleDevices->second.serviceData16)
         {
-          duid16.add(citBleDevices->second.serviceData16);
+          duid16.add(itBleDevices->second.serviceData16);
         }
 
         JsonArray duid128 = dev["DataUUID128bit"].to<JsonArray>();
-        if (citBleDevices->second.serviceData128.size())
+        if (itBleDevices->second.serviceData128.size())
         {
-          duid128.add(citBleDevices->second.serviceData128.c_str());
+          duid128.add(itBleDevices->second.serviceData128.c_str());
         }
 
         btdevs.add(dev);

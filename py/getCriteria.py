@@ -12,9 +12,8 @@ class sq3db:
         ret = "const match_mac_t wifiDefMacs[] = {"
         self._cursor.execute(
             "select prefix, vendorName from mac_vendor "
-            "where vendorName like 'tuya%' "
-            "or vendorName like 'meta platforms%' "
-            "or vendorName like 'flock sa%' "
+            "where vendorName like 'meta platforms%' "
+            "or vendorName like 'flock%' "
             "or vendorName like 'avigilon%' "
             "or vendorName like 'axis%' "
             "or vendorName like 'dahua%' "

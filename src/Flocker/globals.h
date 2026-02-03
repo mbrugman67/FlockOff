@@ -16,18 +16,12 @@
 **********************************/
 #define FLOCKER_VERSION_MAJOR 0
 #define FLOCKER_VERSION_MINOR 9
-#define FLOCKER_VERSION_SUBMINOR 90
+#define FLOCKER_VERSION_SUBMINOR 91
 #define FLOCKER_BUILD_TIME __TIME__
 #define FLOCKER_BUILD_DATE __DATE__
 
 #define SURVEY_JSON_VERSION  2
 
-
-/**********************************
-* Global methods
-**********************************/
-void busyDelayLoop(uint32_t delay);
-const char* macToText(const uint8_t* mac);
 
 /**********************************
 * gobal classes/constants/variables
@@ -58,9 +52,15 @@ enum FLOCK_DISCOVERY_METHOD
   BTLE_DISCOVERY
 };
 
+
+/**********************************
+* Global methods
+**********************************/
+void busyDelayLoop(uint32_t delay);
+const char* macToText(const uint8_t* mac);
 const char* discoveryToText(FLOCK_DISCOVERY_METHOD meth);
 const char* mgmtSubtypeToText(uint8_t stype);
-const char* macToText(const uint8_t* mac);
+
 
 /**********************************
 * #defines for CLI/serial output

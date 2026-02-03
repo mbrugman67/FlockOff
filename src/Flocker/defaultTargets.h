@@ -7,7 +7,6 @@ struct match_mac_t
   const char* name;
 };
 
-// default WiFi mac address prefixes
 const match_mac_t wifiDefMacs[] = {{"70:1A:D5", "Avigilon Alta"}, {"00:40:8C", "Axis Communications AB"}, {"AC:CC:8E", "Axis Communications AB"}, {"B8:A4:4F", "Axis Communications AB"}, 
                        {"E8:27:25", "Axis Communications AB"}, {"1C:79:2D", "CHINA DRAGON TECHNOLOGY LIMITED"}, {"3C:3B:AD", "CHINA DRAGON TECHNOLOGY LIMITED"}, {"40:9C:A7", "CHINA DRAGON TECHNOLOGY LIMITED"}, 
                        {"54:AE:BC", "CHINA DRAGON TECHNOLOGY LIMITED"}, {"5C:8A:AE", "CHINA DRAGON TECHNOLOGY LIMITED"}, {"6C:05:D3", "CHINA DRAGON TECHNOLOGY LIMITED"}, {"A4:6B:40", "CHINA DRAGON TECHNOLOGY LIMITED"}, 
@@ -31,17 +30,9 @@ const match_mac_t wifiDefMacs[] = {{"70:1A:D5", "Avigilon Alta"}, {"00:40:8C", "
                        {"A8:B5:8E", "SHENZHEN BILIAN ELECTRONIC CO.，LTD"}, {"B4:6D:C2", "SHENZHEN BILIAN ELECTRONIC CO.，LTD"}, {"C4:3C:B0", "SHENZHEN BILIAN ELECTRONIC CO.，LTD"}, {"C8:FE:0F", "SHENZHEN BILIAN ELECTRONIC CO.，LTD"}, 
                        {"CC:64:1A", "SHENZHEN BILIAN ELECTRONIC CO.，LTD"}, {"E0:B9:4D", "SHENZHEN BILIAN ELECTRONIC CO.，LTD"}, {"EC:3D:FD", "SHENZHEN BILIAN ELECTRONIC CO.，LTD"}, {"F0:C8:14", "SHENZHEN BILIAN ELECTRONIC CO.，LTD"}, 
                        {"FC:23:CD", "SHENZHEN BILIAN ELECTRONIC CO.，LTD"}, {"20:F4:1B", "Shenzhen Bilian electronic CO.,LTD"}, {"28:F3:66", "Shenzhen Bilian electronic CO.,LTD"}, {"3C:33:00", "Shenzhen Bilian electronic CO.,LTD"}, 
-                       {"44:33:4C", "Shenzhen Bilian electronic CO.,LTD"}, {"AC:A2:13", "Shenzhen Bilian electronic CO.,LTD"}, {"00:1C:27", "Sunell Electronics Co."}, {"00:33:7A", "Tuya Smart Inc."}, 
-                       {"10:5A:17", "Tuya Smart Inc."}, {"10:D5:61", "Tuya Smart Inc."}, {"18:69:D8", "Tuya Smart Inc."}, {"18:DE:50", "Tuya Smart Inc."}, 
-                       {"1C:90:FF", "Tuya Smart Inc."}, {"20:F1:B2", "Tuya Smart Inc."}, {"30:48:7D", "Tuya Smart Inc."}, {"38:1F:8D", "Tuya Smart Inc."}, 
-                       {"38:2C:E5", "Tuya Smart Inc."}, {"38:A5:C9", "Tuya Smart Inc."}, {"3C:0B:59", "Tuya Smart Inc."}, {"4C:A9:19", "Tuya Smart Inc."}, 
-                       {"50:8A:06", "Tuya Smart Inc."}, {"50:8B:B9", "Tuya Smart Inc."}, {"68:57:2D", "Tuya Smart Inc."}, {"70:89:76", "Tuya Smart Inc."}, 
-                       {"7C:F6:66", "Tuya Smart Inc."}, {"80:64:7C", "Tuya Smart Inc."}, {"84:E3:42", "Tuya Smart Inc."}, {"A0:92:08", "Tuya Smart Inc."}, 
-                       {"A8:80:55", "Tuya Smart Inc."}, {"B8:06:0D", "Tuya Smart Inc."}, {"BC:35:1E", "Tuya Smart Inc."}, {"C0:F8:53", "Tuya Smart Inc."}, 
-                       {"C4:82:E1", "Tuya Smart Inc."}, {"CC:8C:BF", "Tuya Smart Inc."}, {"D4:A6:51", "Tuya Smart Inc."}, {"D8:1F:12", "Tuya Smart Inc."}, 
-                       {"D8:C8:0C", "Tuya Smart Inc."}, {"D8:D6:68", "Tuya Smart Inc."}, {"D8:FC:92", "Tuya Smart Inc."}, {"E4:AE:E4", "Tuya Smart Inc."}, 
-                       {"F8:17:2D", "Tuya Smart Inc."}, {"FC:3C:D7", "Tuya Smart Inc."}, {"FC:67:1F", "Tuya Smart Inc."} };   // WiFi MAC match criteria
+                       {"44:33:4C", "Shenzhen Bilian electronic CO.,LTD"}, {"AC:A2:13", "Shenzhen Bilian electronic CO.,LTD"}, {"00:1C:27", "Sunell Electronics Co."} };   // WiFi MAC match criteria
 
 
+const char* wiFiDefNames[] = {"flock"};
 
 #endif // DEFAULT_TARGETS_H_
