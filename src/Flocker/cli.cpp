@@ -55,10 +55,12 @@ bool setupCLI()
   cli->onCommand = onCommand; // handler for unknown command
   cli->writeChar = writeChar; // copy from serial in to cli handler
 
-  if (initOk)
-  {
-    Serial.printf(CLI_CLEAR);
-  }
+  //if (initOk)
+  //{
+  //  Serial.printf(CLI_CLEAR);
+  //}
+
+  Serial.printf("\r\n\r\n\r\n");
 
   Serial.printf(CLI_BOLD_RED "   /$$$$$$$$ /$$                     /$$              /$$$$$$   /$$$$$$   /$$$$$$\r\n");
   Serial.printf(CLI_BOLD_GRN "  | $$_____/| $$                    | $$             /$$__  $$ /$$__  $$ /$$__  $$\r\n");

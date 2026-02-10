@@ -19,6 +19,7 @@
 
 #include "globals.h"
 #include "alloc.h"
+#include "targets.h"
 
 #define BIG_BUF_SIZE (2 * 1024 * 1024)
 
@@ -253,7 +254,7 @@ void wifi_pkt_hndlr(void* buff, wifi_promiscuous_pkt_type_t type)
 
     if (surveying || match != WIFI_MATCH_NONE)
     {
-      // key into the 
+      // key into the
       flk::string key = flk::string(macToText(wifi.sourceAddr));
 
       // have we seen this one already?
@@ -272,9 +273,9 @@ void wifi_pkt_hndlr(void* buff, wifi_promiscuous_pkt_type_t type)
           {
             case WIFI_MATCH_MAC:
             {
-              message = message + "MAC " + macToText(wifi.sourceAddr) + " (" + matchInfo + ")\r\n";
+              message = message + "MAC " + key + " (" + matchInfo + ")\r\n";
             }  break;
-            
+
             case WIFI_MATCH_SSID:
             {
               message = message + "SSID " + wifi.ssid + " (" + matchInfo + ")\r\n";
@@ -357,13 +358,20 @@ class btAdvertisedCBs : public NimBLEScanCallbacks
         uint16_t uuid16 = (((uint16_t)svcid[1] << 8) & 0xff00) | ((uint16_t)svcid[0] & 0x00ff);
         btDevice.services16 = uuid16;
       }
+      else if (serviceUUID.bitSize() == 32)
+      {
+          uint32_t uuid32;
+          memcpy(&uuid32, svcid, 4);
+          reverseBytes((uint8_t*)&uuid32, 4);
+      }
       else if (serviceUUID.bitSize() == 128)
       {
         btDevice.services128 = serviceUUID.toString();
       }
       else
       {
-        Serial.printf(CLI_RED "Unknown service size of %d bits\r\n" CLI_RESET, serviceUUID.bitSize());
+        Serial.printf(CLI_RED "Unknown ServiceUUID size of %d bits\r\n" CLI_RESET, serviceUUID.bitSize());
+        flockLog.addLogLine("BT", "Unknown ServiceUUID data size of %d bits\r\n", serviceUUID.bitSize());
       }
     }
 
@@ -378,29 +386,67 @@ class btAdvertisedCBs : public NimBLEScanCallbacks
         uint16_t uuid16 = (((uint16_t)svcData[1] << 8) & 0xff00) | ((uint16_t)svcData[0] & 0x00ff);
         btDevice.serviceData16 = uuid16;
       }
+      else if (serviceDataUUID.bitSize() == 32)
+      {
+          uint32_t uuid32;
+          memcpy(&uuid32, svcData, 4);
+          reverseBytes((uint8_t*)&uuid32, 4);
+      }
       else if (serviceDataUUID.bitSize() == 128)
       {
         btDevice.services128 = serviceDataUUID.toString();
       }
       else
       {
-        Serial.printf(CLI_RED "Unknown service data size of %d bits\r\n" CLI_RESET, serviceDataUUID.bitSize());
+        Serial.printf(CLI_RED "Unknown ServiceDataUUID size of %d bits\r\n" CLI_RESET, serviceDataUUID.bitSize());
+        flockLog.addLogLine("BT", "Unknown ServiceDataUUID size of %d bits\r\n", serviceDataUUID.bitSize());
       }
     }
 
     flk::string key = flk::string(macToText(btDevice.mac));
+    flk::string matchInfo;
+    bt_match_t match = scanTargets.isBTMatch(btDevice, matchInfo);
 
-    // have we seen this one already?
-    itBleDevices = bleDevices.find(key);
-    if (itBleDevices == bleDevices.end())
+    if (surveying || match != BT_MATCH_NONE)
     {
-      // no?  then add it
-      bleDevices[key] = btDevice;
-    }
-    else
-    {
-      // update timestamp, 'cuz we still see it
-      itBleDevices->second.timestamp = millis();
+      // have we seen this one already?
+      itBleDevices = bleDevices.find(key);
+      if (itBleDevices == bleDevices.end())
+      {
+        // no?  then add it
+        bleDevices[key] = btDevice;
+
+        if (!surveying)
+        {
+          flk::string message = flk::string(gps.getTimeLocationString());
+          message += " Matched on Bluetooth ";
+
+          switch (match)
+          {
+            case BT_MATCH_UUID32:
+            {
+              message = message + "UUID32 " + key + " (" + matchInfo + ")\r\n";
+            }  break;
+
+            case BT_MATCH_MAC:
+            {
+              message = message + "MAC " + key + " (" + matchInfo + ")\r\n";
+            }  break;
+          }
+
+          Serial.printf(CLI_BOLD_RED "ALERT!" CLI_RESET CLI_YEL "%s" CLI_RESET, message.c_str());
+
+          if (loggerOK && flockCfg.getScanLogEnabledState())
+          {
+            scanLog.addLogLine("BT", "%s", message.c_str());
+          }
+        }
+      }
+      else
+      {
+          // update timestamp, 'cuz we still see it
+          itBleDevices->second.timestamp = millis();
+      }
     }
   }
 
@@ -414,8 +460,10 @@ private:
     memset(btDevice.name, 0, SSID_LEN + 1);
     memset(btDevice.mac, 0, 6);
     btDevice.services16 = 0;
+    btDevice.services32 = 0;
     btDevice.services128.clear();
     btDevice.serviceData16 = 0;
+    btDevice.serviceData32 = 0;
     btDevice.serviceData128.clear();
   }
 };
@@ -538,39 +586,56 @@ void SCANNER::update()
         // things to do when continuously scanning
         if (continuousScanning)
         {
-            if (Serial.available())
+          if (Serial.available())
+          {
+              stopScanning();
+              Serial.read();  // read the character that stopped the scan
+          }
+          else
+          {
+            // remove found devices when they timeout
+            for (itWifiDevices = wifiDevices.begin(); itWifiDevices != wifiDevices.end(); ++itWifiDevices)
             {
-                stopScanning();
-                Serial.read();  // read the character that stopped the scan
+              if (millis() > (itWifiDevices->second.timestamp + (flockCfg.getScanHoldTime() * 1000)))
+              {
+                Serial.printf(CLI_CYA "%s; Removed timed-out WiFi, MAC %s, SSID %s\r\n" CLI_RESET,
+                      gps.getTimeLocationString(), macToText(itWifiDevices->second.sourceAddr), itWifiDevices->second.ssid);
+
+                if (loggerOK && flockCfg.getScanLogEnabledState())
+                {
+                  scanLog.addLogLine("WIFI", "Removed timed-out WiFi, MAC %s, SSID %s\r\n",
+                        macToText(itWifiDevices->second.sourceAddr), itWifiDevices->second.ssid);
+                }
+                wifiDevices.erase(itWifiDevices->first);
+              }
+            }
+
+            for (itBleDevices = bleDevices.begin(); itBleDevices != bleDevices.end(); ++itBleDevices)
+            {
+              if (millis() > (itBleDevices->second.timestamp + (flockCfg.getScanHoldTime() * 1000)))
+              {
+                Serial.printf(CLI_CYA "%s; Removed timed-out BT, MAC %s, Name %s\r\n" CLI_RESET,
+                      gps.getTimeLocationString(), macToText(itBleDevices->second.mac), itBleDevices->second.name);
+
+                if (loggerOK && flockCfg.getScanLogEnabledState())
+                {
+                  scanLog.addLogLine("BT", "Removed timed-out BT, MAC %s, Name %s\r\n",
+                        macToText(itBleDevices->second.mac), itBleDevices->second.name);
+                }
+                bleDevices.erase(itBleDevices->first);
+              }
+            }
+
+            // set winky light if there is a device detected
+            if (wifiDevices.size() || bleDevices.size())
+            {
+              flockLED.cycleRed(LEDS::LED_COMMS, 1000, 666);
             }
             else
             {
-              // remove found devices when they timeout
-              for (itWifiDevices = wifiDevices.begin(); itWifiDevices != wifiDevices.end(); ++itWifiDevices)
-              {
-                if (millis() > (itWifiDevices->second.timestamp + (flockCfg.getScanHoldTime() * 1000)))
-                {
-                  Serial.printf(CLI_CYA "%s; Removed timed-out WiFi, MAC %s, SSID %s\r\n" CLI_RESET,
-                        gps.getTimeLocationString(), macToText(itWifiDevices->second.sourceAddr), itWifiDevices->second.ssid);
-                  
-                  if (loggerOK && flockCfg.getScanLogEnabledState())
-                  {
-                    scanLog.addLogLine("WIFI", "Removed timed-out WiFi, MAC %s, SSID %s\r\n", 
-                          macToText(itWifiDevices->second.sourceAddr), itWifiDevices->second.ssid);
-                  }
-                  wifiDevices.erase(itWifiDevices->first);
-                }
-
-                if (wifiDevices.size())
-                {
-                  flockLED.cycleRed(LEDS::LED_COMMS, 1000, 666);
-                }
-                else
-                {
-                  flockLED.stopRed(LEDS::LED_COMMS);
-                }
-              }
+              flockLED.stopRed(LEDS::LED_COMMS);
             }
+          }
         } // doing continuous scan
         else if (surveying)
         {
@@ -748,6 +813,7 @@ void SCANNER::postSurveyActivities()
         {
             dev["Subtype"] = WiFiDataSubtypeToText(itWifiDevices->second.subtype);
         }
+        dev["Relatime"] = itWifiDevices->second.timestamp;
         dev["SSID"] = itWifiDevices->second.ssid;
         dev["SourceAddr"] = macToText(itWifiDevices->second.sourceAddr);
         dev["DestAddr"] = macToText(itWifiDevices->second.destAddr);
@@ -763,32 +829,45 @@ void SCANNER::postSurveyActivities()
     {
         dev.clear();
         dev["Method"] = discoveryToText(BTLE_DISCOVERY);
+        dev["Relatime"] = itBleDevices->second.timestamp;
         dev["Name"] = itBleDevices->second.name;
         dev["MAC"] = macToText(itBleDevices->second.mac);
         dev["RSSI"] = itBleDevices->second.rssi;
 
-        JsonArray uid16 = dev["UUID16bit"].to<JsonArray>();
         if (itBleDevices->second.services16)
         {
-          uid16.add(itBleDevices->second.services16);
+            JsonArray uid16 = dev["UUID16bit"].to<JsonArray>();
+            uid16.add(itBleDevices->second.services16);
         }
 
-        JsonArray uid128 = dev["UUID128bit"].to<JsonArray>();
+        if (itBleDevices->second.services32)
+        {
+            JsonArray uid32 = dev["UUID32bit"].to<JsonArray>();
+            uid32.add(itBleDevices->second.services32);
+        }
+
         if (itBleDevices->second.services128.size())
         {
-          uid128.add(itBleDevices->second.services128.c_str());
+            JsonArray uid128 = dev["UUID128bit"].to<JsonArray>();
+            uid128.add(itBleDevices->second.services128.c_str());
         }
 
-        JsonArray duid16 = dev["DataUUID16bit"].to<JsonArray>();
         if (itBleDevices->second.serviceData16)
         {
-          duid16.add(itBleDevices->second.serviceData16);
+            JsonArray duid16 = dev["DataUUID16bit"].to<JsonArray>();
+            duid16.add(itBleDevices->second.serviceData16);
         }
 
-        JsonArray duid128 = dev["DataUUID128bit"].to<JsonArray>();
+        if (itBleDevices->second.serviceData32)
+        {
+            JsonArray duid32 = dev["DataUUID32bit"].to<JsonArray>();
+            duid32.add(itBleDevices->second.serviceData32);
+        }
+
         if (itBleDevices->second.serviceData128.size())
         {
-          duid128.add(itBleDevices->second.serviceData128.c_str());
+            JsonArray duid128 = dev["DataUUID128bit"].to<JsonArray>();
+            duid128.add(itBleDevices->second.serviceData128.c_str());
         }
 
         btdevs.add(dev);

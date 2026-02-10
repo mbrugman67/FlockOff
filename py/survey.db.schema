@@ -8,11 +8,11 @@ CREATE TABLE surveys (
                         lattitude REAL NOT NULL,
                         satCount INTEGER NOT NULL
                     );
-CREATE TABLE sqlite_sequence(name,seq);
 CREATE TABLE wifi_data (
                         wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         surveyInx INTEGER NOT NULL,
                         subtype TEXT NOT NULL,
+                        relatime INTEGER NOT NULL,
                         sourceAddr TEXT NOT NULL,
                         destAddr TEXT NOT NULL,
                         rssi INTEGER NOT NULL,
@@ -26,6 +26,7 @@ CREATE TABLE wifi_management (
                         wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         surveyInx INTEGER NOT NULL,
                         subtype TEXT NOT NULL,
+                        relatime INTEGER NOT NULL,
                         ssid TEXT NOT NULL,
                         bssid TEXT NOT NULL,
                         rssi INTEGER NOT NULL,
@@ -40,6 +41,7 @@ CREATE TABLE btle (
                         surveyInx INTEGER NOT NULL,
                         name TEXT NOT NULL,
                         mac TEXT NOT NULL,
+                        relatime INTEGER NOT NULL,
                         rssi INTEGER NOT NULL,
                         FOREIGN KEY (surveyInx)
                             REFERENCES surveys (surveyInx)
@@ -50,6 +52,15 @@ CREATE TABLE uuid16 (
                         uuidInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         btInx INTEGER NOT NULL,
                         uuid16 INTEGER NULL,
+                        FOREIGN KEY (btInx)
+                            REFERENCES btle (btInx)
+                                ON DELETE CASCADE
+                                ON UPDATE NO ACTION
+                    );
+CREATE TABLE uuid32 (
+                        uuidInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        btInx INTEGER NOT NULL,
+                        uuid32 INTEGER NULL,
                         FOREIGN KEY (btInx)
                             REFERENCES btle (btInx)
                                 ON DELETE CASCADE

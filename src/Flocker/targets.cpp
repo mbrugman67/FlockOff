@@ -56,9 +56,31 @@ wifi_match_t TARGETS::isWiFiMatch(const found_wifi_t& w, flk::string& info)
   return (WIFI_MATCH_NONE);
 }
 
-bt_match_t TARGETS::isBTMatch(const found_ble_t& b)
+bt_match_t TARGETS::isBTMatch(const found_ble_t& b, flk::string& info)
 {
-  return (BT_MATCH_NONE);
+    char tmp[128] = {'\0'};
+
+    if (b.services32)
+    {
+        snprintf(tmp, 127, "ServiceUUID 0x%04x", b.services32);
+        info = flk::string(tmp);
+        return (BT_MATCH_UUID32);
+    }
+
+    if (b.serviceData32)
+    {
+        snprintf(tmp, 127, "ServiceDataUUID 0x%04x", b.serviceData32);
+        info = flk::string(tmp);
+        return (BT_MATCH_UUID32);
+    }
+
+    if (!strncasecmp(macToText(b.mac), "8c:ea:48", 8))
+    {
+      info = flk::string("8c:ea:48");
+      return (BT_MATCH_MAC);
+    }
+
+    return (BT_MATCH_NONE);
 }
 
 int TARGETS::loadDefaultWiFiMacs()

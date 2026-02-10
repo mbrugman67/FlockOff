@@ -79,66 +79,78 @@ class surveyJson:
             destAddr = self._json["WiFiDevices"][self._wifiInx]["DestAddr"]
             channel = self._json["WiFiDevices"][self._wifiInx]["Channel"]
             rssi = self._json["WiFiDevices"][self._wifiInx]["RSSI"]
+            relatime = self._json["WiFiDevices"][self._wifiInx]["Relatime"]
         except KeyError as e:
             print(e)
             return None
 
         self._wifiInx = self._wifiInx + 1
 
-        return (type, subtype, ssid, sourceAddr, destAddr, channel, rssi)
-
-    def getWifiDevice(self, inx: int):
-        if inx >= self._wifiCount:
-            return None
-
-        try:
-            type = self._json["WiFiDevices"][inx]["Type"]
-            subtype = self._json["WiFiDevices"][inx]["Subtype"]
-            ssid = self._json["WiFiDevices"][inx]["SSID"]
-            sourceAddr = self._json["WiFiDevices"][inx]["SourceAddr"]
-            destAddr = self._json["WiFiDevices"][inx]["DestAddr"]
-            channel = self._json["WiFiDevices"][inx]["Channel"]
-            rssi = self._json["WiFiDevices"][inx]["RSSI"]
-        except KeyError:
-            return None
-
-        return (type, subtype, ssid, sourceAddr, destAddr, channel, rssi)
+        return (type, subtype, ssid, sourceAddr, destAddr, channel, rssi, relatime)
 
     def getNextBTDevice(self):
         if self._bleInx >= self._bleCount:
             return None
 
+        uuid16 = []
+        uuid32 = []
+        uuid128 = []
+        duuid16 = []
+        duuid32 = []
+        duuid128 = []
+
         try:
             name = self._json["BLEDevices"][self._bleInx]["Name"]
             mac = self._json["BLEDevices"][self._bleInx]["MAC"]
             rssi = self._json["BLEDevices"][self._bleInx]["RSSI"]
-
-            uuid16 = self._json["BLEDevices"][self._bleInx]["UUID16bit"]
-            uuid128 = self._json["BLEDevices"][self._bleInx]["UUID128bit"]
+            relatime = self._json["BLEDevices"][self._bleInx]["Relatime"]
         except KeyError:
-            return None
-
-        self._bleInx = self._bleInx + 1
-
-        return (name, mac, rssi, uuid16, uuid128)
-
-    def getBTDevice(self, inx: int):
-        if self.inx >= self._bleInx:
             return None
 
         try:
-            name = self._json["BLEDevices"][inx]["name"]
-            mac = self._json["BLEDevices"][inx]["mac"]
-            rssi = self._json["BLEDevices"][inx]["rssi"]
-
-            uuid16 = self._json["BLEDevices"][inx]["UUID16bit"]
-            uuid128 = self._json["BLEDevices"][inx]["UUID128bit"]
+            uuid16 = self._json["BLEDevices"][self._bleInx]["UUID16bit"]
         except KeyError:
-            return None
+            pass
+
+        try:
+            uuid32 = self._json["BLEDevices"][self._bleInx]["UUID32bit"]
+        except KeyError:
+            pass
+
+        try:
+            uuid128 = self._json["BLEDevices"][self._bleInx]["UUID128bit"]
+        except KeyError:
+            pass
+
+        try:
+            duuid16 = self._json["BLEDevices"][self._bleInx]["DataUUID16bit"]
+        except KeyError:
+            pass
+
+        try:
+            duuid32 = self._json["BLEDevices"][self._bleInx]["DataUUID32bit"]
+        except KeyError:
+            pass
+
+        try:
+            duuid128 = self._json["BLEDevices"][self._bleInx]["DataUUID128bit"]
+        except KeyError:
+            pass
 
         self._bleInx = self._bleInx + 1
 
-        return (name, mac, rssi, uuid16, uuid128)
+        return (
+            name,
+            mac,
+            rssi,
+            uuid16,
+            uuid32,
+            uuid128,
+            duuid16,
+            duuid32,
+            duuid128,
+            relatime,
+        )
 
 
 class sq3db:
@@ -175,6 +187,7 @@ class sq3db:
                         wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         surveyInx INTEGER NOT NULL,
                         subtype TEXT NOT NULL,
+                        relatime INTEGER NOT NULL,
                         sourceAddr TEXT NOT NULL,
                         destAddr TEXT NOT NULL,
                         rssi INTEGER NOT NULL,
@@ -194,6 +207,7 @@ class sq3db:
                         wifiInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         surveyInx INTEGER NOT NULL,
                         subtype TEXT NOT NULL,
+                        relatime INTEGER NOT NULL,
                         ssid TEXT NOT NULL,
                         bssid TEXT NOT NULL,
                         rssi INTEGER NOT NULL,
@@ -214,6 +228,7 @@ class sq3db:
                         surveyInx INTEGER NOT NULL,
                         name TEXT NOT NULL,
                         mac TEXT NOT NULL,
+                        relatime INTEGER NOT NULL,
                         rssi INTEGER NOT NULL,
                         FOREIGN KEY (surveyInx)
                             REFERENCES surveys (surveyInx)
@@ -230,6 +245,21 @@ class sq3db:
                         uuidInx INTEGER PRIMARY KEY AUTOINCREMENT,
                         btInx INTEGER NOT NULL,
                         uuid16 INTEGER NULL,
+                        FOREIGN KEY (btInx)
+                            REFERENCES btle (btInx)
+                                ON DELETE CASCADE
+                                ON UPDATE NO ACTION
+                    );
+            """)
+        except sqlite3.OperationalError as ex:
+            print(ex)
+
+        try:
+            self._cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS uuid32 (
+                        uuidInx INTEGER PRIMARY KEY AUTOINCREMENT,
+                        btInx INTEGER NOT NULL,
+                        uuid32 INTEGER NULL,
                         FOREIGN KEY (btInx)
                             REFERENCES btle (btInx)
                                 ON DELETE CASCADE
@@ -397,12 +427,12 @@ class sq3db:
     def insertWiFiDevice(self, pk: int, wifi: tuple, delayCommit: bool = False) -> None:
         qstring = ""
         if wifi[0] == "Data":
-            qstring = 'INSERT INTO wifi_data (surveyInx, subtype, sourceAddr, destAddr, channel, rssi) values ({},"{}","{}","{}",{},{});'.format(
-                pk, wifi[1], wifi[3], wifi[4], wifi[5], wifi[6]
+            qstring = 'INSERT INTO wifi_data (surveyInx, subtype, sourceAddr, destAddr, channel, rssi, relatime) values ({},"{}","{}","{}",{},{},{});'.format(
+                pk, wifi[1], wifi[3], wifi[4], wifi[5], wifi[6], wifi[7]
             )
         else:
-            qstring = 'INSERT INTO wifi_management (surveyInx, subtype, ssid, bssid, channel, rssi) values ({},"{}","{}","{}",{},{});'.format(
-                pk, wifi[1], wifi[2], wifi[3], wifi[5], wifi[6]
+            qstring = 'INSERT INTO wifi_management (surveyInx, subtype, ssid, bssid, channel, rssi, relatime) values ({},"{}","{}","{}",{},{},{});'.format(
+                pk, wifi[1], wifi[2], wifi[3], wifi[5], wifi[6], wifi[7]
             )
 
         self._cursor.execute(qstring)
@@ -412,13 +442,20 @@ class sq3db:
 
     def insertBLEDevice(self, pk: int, bt: tuple, delayCommit: bool = False) -> None:
         btFK = 0
-        qstring = 'INSERT INTO btle (surveyInx, name, mac, rssi) values ({},"{}","{}",{});'.format(
-            pk, bt[0], bt[1], bt[2]
+        qstring = 'INSERT INTO btle (surveyInx, name, mac, rssi, relatime) values ({},"{}","{}",{},{});'.format(
+            pk, bt[0], bt[1], bt[2], bt[9]
         )
 
         self._cursor.execute(qstring)
 
-        if not len(bt[3]) == 0 or not len(bt[4]) == 0:
+        if (
+            not len(bt[3]) == 0
+            or not len(bt[4]) == 0
+            or not len(bt[5]) == 0
+            or not len(bt[6]) == 0
+            or not len(bt[7]) == 0
+            or not len(bt[8]) == 0
+        ):
             self._dbConnection.commit
             btFK = self._cursor.execute(
                 'select seq from sqlite_sequence where name = "btle"'
@@ -430,9 +467,33 @@ class sq3db:
                 )
                 self._cursor.execute(qstring)
 
-            for uuid16 in bt[4]:
+            for uuid32 in bt[4]:
+                qstring = "INSERT INTO uuid32 (btInx, uuid32) values ({},{})".format(
+                    btFK, uuid32
+                )
+                self._cursor.execute(qstring)
+
+            for uuid128 in bt[5]:
+                qstring = "INSERT INTO uuid128 (btInx, uuid128) values ({},{})".format(
+                    btFK, uuid128
+                )
+                self._cursor.execute(qstring)
+
+            for uuid16 in bt[6]:
                 qstring = "INSERT INTO uuid16 (btInx, uuid16) values ({},{})".format(
                     btFK, uuid16
+                )
+                self._cursor.execute(qstring)
+
+            for uuid32 in bt[7]:
+                qstring = "INSERT INTO uuid32 (btInx, uuid32) values ({},{})".format(
+                    btFK, uuid32
+                )
+                self._cursor.execute(qstring)
+
+            for uuid128 in bt[8]:
+                qstring = "INSERT INTO uuid128 (btInx, uuid128) values ({},{})".format(
+                    btFK, uuid128
                 )
                 self._cursor.execute(qstring)
 

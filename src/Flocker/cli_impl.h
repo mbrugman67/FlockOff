@@ -722,7 +722,7 @@ void onStatus(EmbeddedCli* cli, char* args, void* context)
   size_t cap;
   size_t used;
   flockfs.getInfo(&cap, &used);
-  Serial.printf(CLI_YEL "\tTotal capacity " CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL "bytes, "
+  Serial.printf(CLI_YEL "\tTotal capacity " CLI_BOLD_GRN "%d" CLI_RESET CLI_YEL " bytes, "
                 CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "used (" CLI_BOLD_GRN "%d" CLI_RESET " " CLI_YEL "KiB free)\r\n" CLI_RESET,
                 cap, used, (cap - used) / 1024);
 

@@ -17,7 +17,8 @@ enum bt_match_t
   BT_MATCH_NONE = 0,
   BT_MATCH_MAC,
   BT_MATCH_NAME,
-  BT_MATCH_UUID16
+  BT_MATCH_UUID16,
+  BT_MATCH_UUID32
 };
 
 class TARGETS
@@ -32,7 +33,7 @@ public:
   int getWiFiMacCount()  { return (wiFiMacs.size()); }
 
   wifi_match_t isWiFiMatch(const found_wifi_t& w, flk::string& info);
-  bt_match_t isBTMatch(const found_ble_t& b);
+  bt_match_t isBTMatch(const found_ble_t& b, flk::string& info);
 
 private:
   char* inputstr;
