@@ -474,8 +474,10 @@ class sq3db:
                 self._cursor.execute(qstring)
 
             for uuid128 in bt[5]:
-                qstring = "INSERT INTO uuid128 (btInx, uuid128) values ({},{})".format(
-                    btFK, uuid128
+                qstring = (
+                    'INSERT INTO uuid128 (btInx, uuid128) values ({},"{}")'.format(
+                        btFK, uuid128
+                    )
                 )
                 self._cursor.execute(qstring)
 
@@ -492,8 +494,10 @@ class sq3db:
                 self._cursor.execute(qstring)
 
             for uuid128 in bt[8]:
-                qstring = "INSERT INTO uuid128 (btInx, uuid128) values ({},{})".format(
-                    btFK, uuid128
+                qstring = (
+                    'INSERT INTO uuid128 (btInx, uuid128) values ({},"{}")'.format(
+                        btFK, uuid128
+                    )
                 )
                 self._cursor.execute(qstring)
 
