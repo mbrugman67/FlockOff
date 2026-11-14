@@ -11,11 +11,11 @@
 #include "targets.h"
 
 // constants for config'ing objects
-#define GPS_PORT_TX 5        // defined by circuit board - don't change unless you changed hardware
-#define GPS_PORT_RX 6        // defined by circuit board - don't change unless you changed hardware
+#define GPS_PORT_TX 23       // defined by circuit board - don't change unless you changed hardware
+#define GPS_PORT_RX 24       // defined by circuit board - don't change unless you changed hardware
 #define GPS_PORT_BAUD 9600   // baud rate for GPS module - don't change unless you're using a different module
-#define ADDR_LED_PIN 9       // defined by circuit board - don't change unless you changed hardware
-#define USER_LED 21          // built-in user LED on XIAO ESP32S3 module
+#define ADDR_LED_PIN 10      // defined by circuit board - don't change unless you changed hardware
+#define USER_LED 27          // built-in user LED on XIAO ESP32S3 module
 
 // global class instances
 FLOGGER flockLog;
